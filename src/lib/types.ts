@@ -12,6 +12,40 @@ export type ChestType = "BASICO" | "ORO" | "MAGICO";
 
 export type FundType = "CONSERVATIVE" | "AGGRESSIVE";
 
+// -----------------------------------------------------------------------------
+// Casino (Paso 7)
+// -----------------------------------------------------------------------------
+export type RouletteColor = "RED" | "BLACK" | "GREEN";
+
+export type BlackjackStatus = "PLAYER_TURN" | "DONE";
+
+export type BlackjackResult =
+  | "PLAYER_BLACKJACK"
+  | "DEALER_BLACKJACK"
+  | "PLAYER_WIN"
+  | "DEALER_WIN"
+  | "PUSH"
+  | "PLAYER_BUST";
+
+/**
+ * Vista saneada de una mano de blackjack. Mientras es el turno del jugador, el
+ * crupier expone SOLO su carta visible (`dealerHidden = true`); `dealerScore`
+ * refleja únicamente las cartas visibles. Al terminar (`status = "DONE"`) se
+ * revela toda la mano. Las cartas son enteros 0..51 (ver lib/blackjack.ts).
+ */
+export interface BlackjackView {
+  status: BlackjackStatus;
+  result: BlackjackResult | null;
+  bet: number;
+  playerCards: number[];
+  playerScore: number;
+  dealerCards: number[];
+  dealerScore: number;
+  dealerHidden: boolean;
+  payout: number;
+  newBalance: number | null;
+}
+
 export interface Habit {
   id: string;
   name: string;
@@ -64,6 +98,20 @@ export type LogMap = Record<string, HabitStatus>;
 
 /** Mapa habitId -> monedas acreditadas por su estado actual. */
 export type AwardMap = Record<string, number>;
+
+/** Fila cruda (snake_case) que devuelven los RPCs de blackjack. */
+export interface BlackjackRpcRow {
+  status: BlackjackStatus;
+  result: BlackjackResult | null;
+  bet: number;
+  player_cards: number[];
+  player_score: number;
+  dealer_cards: number[];
+  dealer_score: number;
+  dealer_hidden: boolean;
+  payout: number;
+  new_balance: number;
+}
 
 // -----------------------------------------------------------------------------
 // Forma de la base de datos (referencia / documentación del esquema).
@@ -126,9 +174,18 @@ export interface Database {
         Returns: Investment[];
       };
       spin_roulette: {
-        Args: { p_bet: number };
-        Returns: { multiplier: number; payout: number; new_balance: number }[];
+        Args: { p_bet_amount: number; p_choice: RouletteColor };
+        Returns: {
+          result_number: number;
+          result_color: RouletteColor;
+          won: boolean;
+          payout: number;
+          new_balance: number;
+        }[];
       };
+      bj_deal: { Args: { p_bet: number }; Returns: BlackjackRpcRow[] };
+      bj_hit: { Args: Record<string, never>; Returns: BlackjackRpcRow[] };
+      bj_stand: { Args: Record<string, never>; Returns: BlackjackRpcRow[] };
       upgrade_card: {
         Args: { p_card_id: string };
         Returns: {

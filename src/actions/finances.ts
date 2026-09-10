@@ -1,7 +1,13 @@
 "use server";
 
 import { getSupabase } from "@/lib/supabase/server";
-import type { FundType, Investment } from "@/lib/types";
+import type {
+  BlackjackRpcRow,
+  BlackjackView,
+  FundType,
+  Investment,
+  RouletteColor,
+} from "@/lib/types";
 
 // -----------------------------------------------------------------------------
 // Depósitos / retiros de inversión
@@ -74,38 +80,50 @@ export async function calculateDailyInterest(): Promise<InterestResult> {
 }
 
 // -----------------------------------------------------------------------------
-// Ruleta
+// Ruleta europea por color (Paso 7)
 // -----------------------------------------------------------------------------
 export interface SpinResult {
   ok: boolean;
   persisted: boolean;
-  multiplier: number | null;
+  resultNumber: number | null;
+  resultColor: RouletteColor | null;
+  won: boolean;
   payout: number | null;
   newBalance: number | null;
   insufficient?: boolean;
   error?: string;
 }
 
-export async function spinRoulette(bet: number): Promise<SpinResult> {
+export async function spinRoulette(
+  betAmount: number,
+  choice: RouletteColor,
+): Promise<SpinResult> {
   const supabase = await getSupabase();
   if (!supabase) {
     return {
       ok: false,
       persisted: false,
-      multiplier: null,
+      resultNumber: null,
+      resultColor: null,
+      won: false,
       payout: null,
       newBalance: null,
     };
   }
 
-  const { data, error } = await supabase.rpc("spin_roulette", { p_bet: bet });
+  const { data, error } = await supabase.rpc("spin_roulette", {
+    p_bet_amount: betAmount,
+    p_choice: choice,
+  });
   if (error) {
     const insufficient = /insuficiente/i.test(error.message);
     console.error("[spinRoulette] RPC error:", error.message);
     return {
       ok: false,
       persisted: true,
-      multiplier: null,
+      resultNumber: null,
+      resultColor: null,
+      won: false,
       payout: null,
       newBalance: null,
       insufficient,
@@ -117,8 +135,70 @@ export async function spinRoulette(bet: number): Promise<SpinResult> {
   return {
     ok: true,
     persisted: true,
-    multiplier: row?.multiplier ?? null,
+    resultNumber: row?.result_number ?? null,
+    resultColor: (row?.result_color ?? null) as RouletteColor | null,
+    won: row?.won ?? false,
     payout: row?.payout ?? null,
     newBalance: row?.new_balance ?? null,
   };
+}
+
+// -----------------------------------------------------------------------------
+// Blackjack (Paso 7) — estado en servidor; el cliente sólo ve la vista saneada.
+// -----------------------------------------------------------------------------
+export interface BlackjackActionResult {
+  ok: boolean;
+  persisted: boolean;
+  view: BlackjackView | null;
+  insufficient?: boolean;
+  error?: string;
+}
+
+function rowToView(row: BlackjackRpcRow): BlackjackView {
+  return {
+    status: row.status,
+    result: row.result,
+    bet: row.bet,
+    playerCards: row.player_cards ?? [],
+    playerScore: row.player_score,
+    dealerCards: row.dealer_cards ?? [],
+    dealerScore: row.dealer_score,
+    dealerHidden: row.dealer_hidden,
+    payout: row.payout,
+    newBalance: row.new_balance,
+  };
+}
+
+async function callBlackjack(
+  rpc: "bj_deal" | "bj_hit" | "bj_stand",
+  args: Record<string, unknown>,
+  tag: string,
+): Promise<BlackjackActionResult> {
+  const supabase = await getSupabase();
+  if (!supabase) return { ok: false, persisted: false, view: null };
+
+  const { data, error } = await supabase.rpc(rpc, args);
+  if (error) {
+    const insufficient = /insuficiente/i.test(error.message);
+    console.error(`[${tag}] RPC error:`, error.message);
+    return { ok: false, persisted: true, view: null, insufficient, error: error.message };
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    return { ok: false, persisted: true, view: null, error: "Respuesta vacía del servidor" };
+  }
+  return { ok: true, persisted: true, view: rowToView(row as BlackjackRpcRow) };
+}
+
+export async function bjDeal(bet: number): Promise<BlackjackActionResult> {
+  return callBlackjack("bj_deal", { p_bet: bet }, "bjDeal");
+}
+
+export async function bjHit(): Promise<BlackjackActionResult> {
+  return callBlackjack("bj_hit", {}, "bjHit");
+}
+
+export async function bjStand(): Promise<BlackjackActionResult> {
+  return callBlackjack("bj_stand", {}, "bjStand");
 }

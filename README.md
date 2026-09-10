@@ -33,6 +33,7 @@ npm run dev      # http://localhost:3000  (arranca en modo demo)
    - `supabase/04_finances.sql` → `investments` + RPCs `manage_investment`, `calculate_daily_interest`, `spin_roulette` (Paso 4).
    - `supabase/05_card_levels.sql` → `effective_multiplier`, `deck_multiplier_percent` (con nivel) + RPC `upgrade_card` (Paso 5).
    - `supabase/06_auth_rls.sql` → **auth multiusuario**: `user_id` en todas las tablas, trigger de seed por usuario, RLS estricta (`auth.uid()`) y cierre del acceso anónimo (Paso 6). Ver §6b.
+   - `supabase/07_casino_blackjack.sql` → **casino**: ruleta europea por color (`spin_roulette(bet, choice)`) + Blackjack con estado en servidor (`blackjack_games` + `bj_deal`/`bj_hit`/`bj_stand`) (Paso 7). Ver §4f.
 3. **Project Settings → API**: copiá la _Project URL_ y la _anon public key_.
 4. Copiá el ejemplo de env y completalo:
    ```bash
@@ -124,12 +125,10 @@ cálculo de multiplicador en `computeAward`) y luego reconcilia con el valor de 
   interés (compuesto para Conservador; RNG por día para Agresivo) y **avanza el timestamp
   por días enteros** (preserva el remanente sub-día → idempotente dentro del mismo día;
   tope de 365 días como salvaguarda anti-loops).
-- **Ruleta (`spin_roulette`):** valida saldo, resta la apuesta, RNG por pesos en Postgres
-  (**45% ×0 · 30% ×1 · 15% ×2 · 9% ×3 · 1% ×50**) y paga `apuesta × multiplicador`.
-  La UI bloquea, cicla multiplicadores tipo tragamonedas ~1.9 s y frena en el resultado del
-  RPC, con delta de monedas flotante y sincronización del balance global.
-- **Modo demo:** depositar/retirar/girar se simulan en el cliente (`rollRouletteMultiplier`
-  espeja los pesos del RPC). El interés no corre en demo (no hay tiempo transcurrido persistido).
+- **Ruleta:** la versión original (slot con pesos ×0…×50) fue **reemplazada en el Paso 7**
+  por una ruleta europea por color. Ver §4f.
+- **Modo demo:** depositar/retirar se simulan en el cliente. El interés no corre en demo
+  (no hay tiempo transcurrido persistido).
 
 ## 4e. Subida de nivel de cartas (Paso 5)
 
@@ -152,6 +151,26 @@ cálculo de multiplicador en `computeAward`) y luego reconcilia con el valor de 
   carta y contadores en vivo. Sincroniza wallet (global) e inventario (`applyUpgrade`).
 - **Modo demo:** la mejora se simula en el cliente con los mismos requisitos/fórmula.
 
+## 4f. Casino: Ruleta V2 + Blackjack (Paso 7)
+
+Dentro del tab **Finanzas**, la sección **Casino** tiene un selector de pestañas
+**Ruleta / Blackjack** (`casino-view.tsx`).
+
+- **Ruleta europea (`spin_roulette(bet, choice)`):** apostás a un **color**. RNG de una
+  casilla **0–36** con el mapa de color **auténtico** (18 rojos / 18 negros / 1 verde;
+  los colores alternan como en una mesa real). Pagos totales sobre la apuesta:
+  **Verde ×14 · Rojo/Negro ×2**. La UI muestra 3 botones con los colores exactos, cicla
+  números al girar y revela el número ganador con su color + delta de monedas.
+- **Blackjack (estado en servidor):** tabla `blackjack_games` (una partida activa por
+  usuario) con el **mazo barajado y la carta tapada del crupier en el servidor**. RPCs
+  `bj_deal` / `bj_hit` / `bj_stand`. El crupier **roba al azar** y **puede sacar blackjack
+  natural**; en su turno se planta en 17. Pagos: **normal 1:1, blackjack 3:2, empate push**.
+  > **Seguridad:** `blackjack_games` **no se expone al cliente** (RLS + `revoke` directo);
+  > se opera sólo vía los RPCs `security definer`, que devuelven una vista saneada (la carta
+  > tapada no viaja hasta el reveal). Ver `supabase/07_casino_blackjack.sql`.
+- **Modo demo:** ambos juegos corren client-side con `lib/blackjack.ts` y los helpers de
+  ruleta en `constants.ts`, espejando las reglas del servidor.
+
 ---
 
 ## 5. Estructura
@@ -165,6 +184,7 @@ supabase/
   04_finances.sql     # (P4) investments + manage_investment / calculate_daily_interest / spin_roulette
   05_card_levels.sql  # (P5) effective_multiplier + deck_multiplier_percent (con nivel) + upgrade_card
   06_auth_rls.sql     # (P6) user_id + trigger de seed por usuario + RLS estricta (auth.uid) + cierre anon
+  07_casino_blackjack.sql # (P7) ruleta por color (spin_roulette) + blackjack (blackjack_games, bj_deal/hit/stand)
 src/
   proxy.ts            # (P6) Proxy Next 16 (ex-middleware): refresca sesión + protege rutas privadas
   app/
@@ -191,11 +211,14 @@ src/
     game-card.tsx               # (P2) carta visual (marco por rareza, brillo legendario)
     store-view.tsx              # (P3) 3 cofres + odds + compra
     chest-reveal-modal.tsx      # (P3) animación de apertura + revelación de carta (gacha)
-    finances-view.tsx           # (P4) fondos de inversión + ruleta (slot machine)
+    finances-view.tsx           # (P4/P7) fondos de inversión + <CasinoView/>
+    casino-view.tsx             # (P7) selector de pestañas Ruleta / Blackjack
+    roulette-view.tsx           # (P7) ruleta europea por color (Verde/Rojo/Negro)
+    blackjack-view.tsx          # (P7) mesa de blackjack: manos, scores, Deal/Hit/Stand
     service-worker-registrar.tsx
     ui/button.tsx · ui/drawer.tsx · ui/badge.tsx  # primitivos estilo shadcn (drawer/modal vía portal)
   lib/
-    types.ts · constants.ts · utils.ts
+    types.ts · constants.ts · utils.ts · blackjack.ts (P7: motor compartido demo+UI)
     supabase/server.ts          # (P6) cliente server por-request con cookies (@supabase/ssr; null → demo)
     supabase/client.ts          # (P6) cliente browser (login)
     supabase/session.ts         # (P6) refresh de sesión + gate de rutas (usado por proxy.ts)

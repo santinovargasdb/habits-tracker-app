@@ -8,6 +8,7 @@ import type {
   HabitStatus,
   Investment,
   OwnedCard,
+  RouletteColor,
   TimeBlock,
 } from "@/lib/types";
 
@@ -368,40 +369,53 @@ export const DEMO_INVESTMENTS: Investment[] = [
   },
 ];
 
-export type RouletteTone = "lose" | "neutral" | "win" | "jackpot";
-
-export interface RouletteSegment {
-  multiplier: number;
-  weight: number; // porcentaje
-  label: string;
-  tone: RouletteTone;
-}
-
-// Pesos: 45% x0 · 30% x1 · 15% x2 · 9% x3 · 1% x50
-export const ROULETTE_TABLE: RouletteSegment[] = [
-  { multiplier: 0, weight: 45, label: "Nada", tone: "lose" },
-  { multiplier: 1, weight: 30, label: "Recuperás", tone: "neutral" },
-  { multiplier: 2, weight: 15, label: "Doble", tone: "win" },
-  { multiplier: 3, weight: 9, label: "Triple", tone: "win" },
-  { multiplier: 50, weight: 1, label: "¡JACKPOT!", tone: "jackpot" },
+// -----------------------------------------------------------------------------
+// Ruleta europea por color (Paso 7) — 37 casillas: 18 rojas / 18 negras / 1 verde.
+// El mapa de colores es el auténtico de la ruleta europea (alternan como en una
+// mesa real). Espeja roulette_color(n) y spin_roulette del RPC.
+// -----------------------------------------------------------------------------
+export const ROULETTE_RED: number[] = [
+  1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36,
+];
+export const ROULETTE_BLACK: number[] = [
+  2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35,
 ];
 
-/** Multiplicadores para el ciclado visual del giro. */
-export const ROULETTE_CYCLE: number[] = ROULETTE_TABLE.map((s) => s.multiplier);
-
-/** RNG de la ruleta (espeja spin_roulette del RPC). */
-export function rollRouletteMultiplier(): number {
-  const roll = Math.random() * 100;
-  let acc = 0;
-  for (const seg of ROULETTE_TABLE) {
-    acc += seg.weight;
-    if (roll < acc) return seg.multiplier;
-  }
-  return 0;
+export function rouletteColor(n: number): RouletteColor {
+  if (n === 0) return "GREEN";
+  return ROULETTE_RED.includes(n) ? "RED" : "BLACK";
 }
 
-export function rouletteSegment(multiplier: number): RouletteSegment {
-  return (
-    ROULETTE_TABLE.find((s) => s.multiplier === multiplier) ?? ROULETTE_TABLE[0]
-  );
+/** Pago TOTAL sobre la apuesta: Verde ×14 · Rojo/Negro ×2. */
+export function rouletteMultiplier(color: RouletteColor): number {
+  return color === "GREEN" ? 14 : 2;
+}
+
+/** RNG de la casilla ganadora (0..36) — modo demo, espeja el RPC. */
+export function spinRouletteNumber(): number {
+  return Math.floor(Math.random() * 37);
+}
+
+export interface RouletteColorMeta {
+  key: RouletteColor;
+  label: string;
+  multiplier: number;
+  slots: number;
+  /** Color de acento (texto/glow). */
+  accent: string;
+  /** Fondo de la ficha/botón del color. */
+  swatch: string;
+  /** Color del texto sobre el swatch. */
+  ink: string;
+}
+
+// Orden de presentación de los botones (verde al centro por ser el premio alto).
+export const ROULETTE_COLORS: RouletteColorMeta[] = [
+  { key: "RED",   label: "Rojo",  multiplier: 2,  slots: 18, accent: "#ff6b6b", swatch: "#c62b38", ink: "#fff5f5" },
+  { key: "GREEN", label: "Verde", multiplier: 14, slots: 1,  accent: "#3ecf8e", swatch: "#1f7a52", ink: "#eafff5" },
+  { key: "BLACK", label: "Negro", multiplier: 2,  slots: 18, accent: "#c7c9d4", swatch: "#15151d", ink: "#ededf2" },
+];
+
+export function rouletteColorMeta(color: RouletteColor): RouletteColorMeta {
+  return ROULETTE_COLORS.find((c) => c.key === color) ?? ROULETTE_COLORS[0];
 }

@@ -1,45 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Dices, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
+import { TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  calculateDailyInterest,
-  manageInvestment,
-  spinRoulette,
-} from "@/actions/finances";
+import CasinoView from "@/components/casino-view";
+import { calculateDailyInterest, manageInvestment } from "@/actions/finances";
 import { useWallet } from "@/lib/wallet-context";
-import {
-  FUND_META,
-  FUND_ORDER,
-  ROULETTE_CYCLE,
-  ROULETTE_TABLE,
-  rollRouletteMultiplier,
-  rouletteSegment,
-  type RouletteTone,
-} from "@/lib/constants";
+import { FUND_META, FUND_ORDER } from "@/lib/constants";
 import type { FundType, Investment } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 interface FinancesViewProps {
   initialInvestments: Investment[];
   configured: boolean;
 }
 
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 function parseAmount(raw: string): number {
   const n = Math.floor(Number(raw.replace(/[^\d]/g, "")));
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
-
-const TONE_COLOR: Record<RouletteTone, string> = {
-  lose: "#ff6b6b",
-  neutral: "#9797a6",
-  win: "#f6c445",
-  jackpot: "#f6c445",
-};
 
 export default function FinancesView({
   initialInvestments,
@@ -122,80 +101,6 @@ export default function FinancesView({
       setBusyFund(null);
     }
   }
-
-  // ----------------------------------------------------------------- Ruleta
-  const [betInput, setBetInput] = useState("");
-  const [spinning, setSpinning] = useState(false);
-  const [display, setDisplay] = useState<number | null>(null);
-  const [result, setResult] = useState<{ multiplier: number; net: number } | null>(
-    null,
-  );
-  const [delta, setDelta] = useState<{ id: number; amount: number } | null>(null);
-  const burstId = useRef(0);
-
-  const bet = parseAmount(betInput);
-  const betValid = bet > 0 && bet <= balance && !spinning;
-
-  function bumpBet(n: number) {
-    setBetInput(String(Math.min(bet + n, balance)));
-  }
-
-  async function spin() {
-    if (spinning || bet <= 0 || bet > balance) return;
-    setSpinning(true);
-    setResult(null);
-    setDelta(null);
-
-    let i = 0;
-    const iv = setInterval(() => {
-      setDisplay(ROULETTE_CYCLE[i % ROULETTE_CYCLE.length]);
-      i += 1;
-    }, 90);
-
-    try {
-      let mult: number;
-      let payout: number;
-
-      if (configured) {
-        const [res] = await Promise.all([spinRoulette(bet), wait(1900)]);
-        clearInterval(iv);
-        if (!res.ok || res.multiplier === null) {
-          setDisplay(null);
-          showToast(res.insufficient ? "Saldo insuficiente." : "No se pudo girar.");
-          return;
-        }
-        mult = res.multiplier;
-        payout = res.payout ?? bet * mult;
-        if (res.newBalance !== null) setBalance(res.newBalance);
-      } else {
-        mult = rollRouletteMultiplier();
-        payout = bet * mult;
-        await wait(1900);
-        clearInterval(iv);
-        addToBalance(payout - bet);
-      }
-
-      setDisplay(mult);
-      const net = payout - bet;
-      setResult({ multiplier: mult, net });
-      burstId.current += 1;
-      setDelta({ id: burstId.current, amount: net });
-      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-        navigator.vibrate?.(mult === 0 ? 40 : [12, 40, 12]);
-      }
-    } finally {
-      setSpinning(false);
-    }
-  }
-
-  const shown = display;
-  const shownSeg = shown !== null ? rouletteSegment(shown) : null;
-  const displayColor = spinning
-    ? "#ededf2"
-    : shownSeg
-      ? TONE_COLOR[shownSeg.tone]
-      : "#9797a6";
-  const isJackpot = !spinning && result?.multiplier === 50;
 
   return (
     <div className="relative z-10 mx-auto w-full max-w-md px-4 pb-28 pt-6">
@@ -315,137 +220,7 @@ export default function FinancesView({
       </section>
 
       {/* ---------------------------------------------------------- CASINO */}
-      <section>
-        <div className="mb-3 flex items-center gap-2.5">
-          <Dices className="h-4 w-4 text-gold" strokeWidth={2.4} />
-          <h2 className="font-display text-xs font-bold uppercase tracking-[0.2em] text-fg">
-            Casino
-          </h2>
-          <span className="h-px flex-1 bg-gradient-to-r from-line to-transparent" />
-        </div>
-
-        <article className="animate-rise relative overflow-hidden rounded-2xl border border-line bg-surface/80 p-5">
-          {/* Leyenda de probabilidades */}
-          <div className="flex flex-wrap justify-center gap-1.5">
-            {ROULETTE_TABLE.map((seg) => (
-              <Badge
-                key={seg.multiplier}
-                variant="outline"
-                style={{
-                  color: TONE_COLOR[seg.tone],
-                  borderColor: `${TONE_COLOR[seg.tone]}44`,
-                }}
-              >
-                ×{seg.multiplier} · {seg.weight}%
-              </Badge>
-            ))}
-          </div>
-
-          {/* Display del giro */}
-          <div className="relative mt-5 grid h-36 place-items-center overflow-hidden rounded-2xl border border-line bg-ink-2">
-            <span
-              aria-hidden
-              className={cn(
-                "pointer-events-none absolute h-40 w-40 rounded-full blur-3xl transition-opacity",
-                isJackpot ? "opacity-70" : "opacity-25",
-              )}
-              style={{ backgroundColor: `${displayColor}55` }}
-            />
-            <div
-              className={cn(
-                "relative flex flex-col items-center",
-                isJackpot && "animate-pulse-gold",
-              )}
-            >
-              <span
-                className={cn(
-                  "font-display font-extrabold leading-none tabular-nums transition-colors",
-                  spinning ? "text-6xl opacity-90" : "text-7xl",
-                )}
-                style={{ color: displayColor }}
-              >
-                ×{shown ?? 0}
-              </span>
-              <span
-                className="mt-1 font-mono text-[11px] uppercase tracking-[0.22em]"
-                style={{ color: displayColor }}
-              >
-                {spinning
-                  ? "Girando…"
-                  : shownSeg
-                    ? shownSeg.label
-                    : "Probá tu suerte"}
-              </span>
-            </div>
-
-            {delta && (
-              <span
-                key={delta.id}
-                onAnimationEnd={() => setDelta(null)}
-                className={cn(
-                  "animate-coin-float pointer-events-none absolute right-5 top-4 z-10 flex items-center gap-0.5 font-mono text-base font-bold",
-                  delta.amount > 0
-                    ? "text-gold"
-                    : delta.amount < 0
-                      ? "text-danger"
-                      : "text-muted",
-                )}
-              >
-                {delta.amount > 0 ? "+" : delta.amount < 0 ? "−" : "±"}
-                {Math.abs(delta.amount).toLocaleString("es-AR")}
-                <span className="text-xs">🪙</span>
-              </span>
-            )}
-          </div>
-
-          {/* Apuesta */}
-          <div className="mt-4 flex items-center gap-2">
-            <input
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="Apuesta"
-              value={betInput}
-              disabled={spinning}
-              onChange={(e) => setBetInput(e.target.value.replace(/[^\d]/g, ""))}
-              className="h-11 w-full rounded-xl border border-line bg-ink-2 px-3 text-right font-mono text-base tabular-nums text-fg outline-none placeholder:text-muted/50 focus:border-gold/50 disabled:opacity-50"
-            />
-            <Button
-              variant="surface"
-              size="md"
-              disabled={spinning || balance <= 0}
-              onClick={() => bumpBet(100)}
-            >
-              +100
-            </Button>
-            <Button
-              variant="surface"
-              size="md"
-              disabled={spinning || balance <= 0}
-              onClick={() => setBetInput(String(balance))}
-            >
-              Max
-            </Button>
-          </div>
-
-          <Button
-            variant="gold"
-            size="lg"
-            disabled={!betValid}
-            onClick={spin}
-            className="mt-3 h-14 w-full text-lg"
-          >
-            <Dices className="h-5 w-5" strokeWidth={2.5} />
-            {spinning ? "Girando…" : "GIRAR"}
-          </Button>
-          <p className="mt-2 text-center font-mono text-[11px] uppercase tracking-wider text-muted">
-            {bet > balance
-              ? "Saldo insuficiente"
-              : bet > 0
-                ? `Apostás ${bet.toLocaleString("es-AR")} 🪙`
-                : "Ingresá tu apuesta"}
-          </p>
-        </article>
-      </section>
+      <CasinoView configured={configured} />
 
       {toast && (
         <div
