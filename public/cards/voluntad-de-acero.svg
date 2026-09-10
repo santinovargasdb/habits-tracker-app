@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none" role="img" aria-label="Voluntad de Acero">
+  <defs>
+    <linearGradient id="steel" x1="28" y1="20" x2="68" y2="76" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffe9a3"/>
+      <stop offset="0.5" stop-color="#f6c445"/>
+      <stop offset="1" stop-color="#d98e1f"/>
+    </linearGradient>
+  </defs>
+  <circle cx="48" cy="48" r="33" fill="#f6c445" opacity="0.2"/>
+  <path d="M48 20l21 7.5v16.5c0 14.6-9.4 24-21 28.2-11.6-4.2-21-13.6-21-28.2V27.5L48 20Z"
+        fill="url(#steel)" stroke="#fff6d6" stroke-width="2.6" stroke-linejoin="round"/>
+  <path d="M39 48.5l6 6 13-14" stroke="#4a3600" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

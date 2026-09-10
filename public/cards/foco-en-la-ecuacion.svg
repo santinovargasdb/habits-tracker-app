@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none" role="img" aria-label="Foco en la Ecuación">
+  <circle cx="48" cy="48" r="33" fill="#4aa3ff" opacity="0.16"/>
+  <circle cx="48" cy="48" r="23" stroke="#eaf2ff" stroke-width="3.4"/>
+  <circle cx="48" cy="48" r="13" stroke="#7cc3ff" stroke-width="3.4"/>
+  <circle cx="48" cy="48" r="4.2" fill="#eaf2ff"/>
+  <path d="M48 15v10M48 71v10M15 48h10M71 48h10" stroke="#eaf2ff" stroke-width="3.4" stroke-linecap="round"/>
+</svg>

@@ -76,11 +76,27 @@ export default async function Page() {
       awards[row.habit_id] = row.coins_awarded ?? 0;
     }
 
-    // Catálogo de cartas
-    const { data: dbCards } = await supabase
+    // Catálogo de cartas (incluye `image_url` para el icono oficial).
+    const primaryCards = await supabase
       .from("cards")
-      .select("id, name, rarity, target_block, multiplier_percent, description");
-    if (dbCards && dbCards.length > 0) cards = dbCards as Card[];
+      .select(
+        "id, name, rarity, target_block, multiplier_percent, description, image_url",
+      );
+    // Compat: si la columna `image_url` no existe (migración 09 sin aplicar),
+    // reintentamos sin ella; la UI cae al arte emoji de fallback.
+    let dbCards = primaryCards.data as Array<Record<string, unknown>> | null;
+    if (!dbCards) {
+      const retry = await supabase
+        .from("cards")
+        .select("id, name, rarity, target_block, multiplier_percent, description");
+      dbCards = retry.data as Array<Record<string, unknown>> | null;
+    }
+    if (dbCards && dbCards.length > 0) {
+      cards = dbCards.map((c) => ({
+        ...c,
+        image_url: c.image_url ?? null,
+      })) as Card[];
+    }
 
     // Inventario (join en JS)
     const cardMap = new Map(cards.map((c) => [c.id, c]));

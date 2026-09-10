@@ -85,6 +85,11 @@ export interface Card {
   target_block: TimeBlock | null;
   multiplier_percent: number;
   description: string;
+  /**
+   * URL del icono oficial de la carta (columna `image_url` en la DB).
+   * null / vacío → la UI cae al arte emoji de fallback (ver cardArt()).
+   */
+  image_url: string | null;
 }
 
 /** Carta poseída (catálogo + cantidad + nivel). */

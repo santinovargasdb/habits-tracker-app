@@ -201,6 +201,19 @@ export const RARITY_META: Record<CardRarity, RarityMeta> = {
   },
 };
 
+/**
+ * Marco + fondo por rareza (estética Clash Royale). Clases Tailwind aplicadas
+ * al contenedor de la carta; el glow/brillo extra de Legendary se refuerza con
+ * la animación `animate-sheen` en el componente.
+ */
+export const RARITY_FRAME_CLASS: Record<CardRarity, string> = {
+  Common: "border-slate-400 bg-slate-800/80",
+  Rare: "border-amber-600 bg-amber-950/80",
+  Epic: "border-purple-500 bg-purple-950/80",
+  Legendary:
+    "border-yellow-400 bg-yellow-950/90 shadow-lg shadow-yellow-500/20",
+};
+
 /** Arte (emoji) por carta — keyed por los UUIDs fijos del seed. */
 export const CARD_ART: Record<string, string> = {
   "aaaa1111-1111-1111-1111-111111111111": "📖",
@@ -257,6 +270,7 @@ export const SEED_CARDS: Card[] = [
     multiplier_percent: 10,
     description:
       "Aprovechá cada trayecto. +10% de monedas en los hábitos del bloque Viaje.",
+    image_url: "/cards/libro-de-viaje.svg",
   },
   {
     id: "bbbb2222-2222-2222-2222-222222222222",
@@ -266,6 +280,7 @@ export const SEED_CARDS: Card[] = [
     multiplier_percent: 15,
     description:
       "Concentración total sobre el problema. +15% de monedas en el bloque Tarde.",
+    image_url: "/cards/foco-en-la-ecuacion.svg",
   },
   {
     id: "cccc3333-3333-3333-3333-333333333333",
@@ -274,6 +289,7 @@ export const SEED_CARDS: Card[] = [
     target_block: "Tarde",
     multiplier_percent: 20,
     description: "Disciplina marcial pasiva. +20% de monedas en el bloque Tarde.",
+    image_url: "/cards/cinturon-naranja.svg",
   },
   {
     id: "dddd4444-4444-4444-4444-444444444444",
@@ -282,6 +298,7 @@ export const SEED_CARDS: Card[] = [
     target_block: "Madrugada",
     multiplier_percent: 25,
     description: "Dominá el amanecer. +25% de monedas en el bloque Madrugada.",
+    image_url: "/cards/voluntad-de-acero.svg",
   },
 ];
 
