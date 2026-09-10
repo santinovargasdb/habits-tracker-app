@@ -8,8 +8,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // Con auth multiusuario (Paso 6) usamos @supabase/ssr: el cliente lee/escribe la
 // sesión del usuario desde las cookies, de modo que la RLS filtra por auth.uid().
 //
-// Si faltan las variables de entorno devolvemos null y la app entra en "modo
-// demo" (UI totalmente explorable, sin persistencia ni auth).
+// En producción las env vars siempre están presentes. `getSupabase()` devuelve
+// null sólo si faltan (p. ej. un build local sin configurar); las rutas de datos
+// usan `getSupabaseOrThrow()` para fallar de forma explícita en ese caso.
 // -----------------------------------------------------------------------------
 
 export function isSupabaseConfigured(): boolean {
@@ -26,8 +27,8 @@ export async function getSupabase(): Promise<SupabaseClient | null> {
   if (!url || !key) {
     if (process.env.NODE_ENV !== "production") {
       console.warn(
-        "[Dojo Ledger] Supabase no configurado — corriendo en modo demo. " +
-          "Completá .env.local para persistir datos.",
+        "[Dojo Ledger] Supabase no configurado: faltan NEXT_PUBLIC_SUPABASE_URL / " +
+          "NEXT_PUBLIC_SUPABASE_ANON_KEY. Completá .env.local para operar contra la DB.",
       );
     }
     return null;
@@ -53,4 +54,20 @@ export async function getSupabase(): Promise<SupabaseClient | null> {
       },
     },
   });
+}
+
+/**
+ * Igual que getSupabase() pero exige que Supabase esté configurado: lanza un
+ * error explícito si faltan las env vars. Lo usan los Server Actions y las
+ * rutas de datos (en producción siempre hay backend; ya no hay modo demo).
+ */
+export async function getSupabaseOrThrow(): Promise<SupabaseClient> {
+  const supabase = await getSupabase();
+  if (!supabase) {
+    throw new Error(
+      "Supabase no está configurado: faltan las variables de entorno " +
+        "NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+    );
+  }
+  return supabase;
 }

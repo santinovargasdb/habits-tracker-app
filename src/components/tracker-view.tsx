@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle } from "lucide-react";
 import HabitCard from "@/components/habit-card";
 import { setHabitStatus } from "@/actions/habits";
 import { useWallet } from "@/lib/wallet-context";
@@ -22,7 +21,6 @@ interface TrackerViewProps {
   habits: Habit[];
   initialLogs: LogMap;
   initialAwards: AwardMap;
-  configured: boolean;
 }
 
 export default function TrackerView({
@@ -30,7 +28,6 @@ export default function TrackerView({
   habits,
   initialLogs,
   initialAwards,
-  configured,
 }: TrackerViewProps) {
   const { setBalance, addToBalance } = useWallet();
   const { multiplierForBlock } = useGame();
@@ -108,7 +105,7 @@ export default function TrackerView({
     void (async () => {
       const res = await setHabitStatus(habit.id, logDate, next);
 
-      if (configured && !res.persisted) {
+      if (!res.persisted) {
         setLogs((m) => ({ ...m, [habit.id]: prevStatus }));
         setAwards((m) => ({ ...m, [habit.id]: prevAward }));
         addToBalance(-delta);
@@ -171,23 +168,6 @@ export default function TrackerView({
             />
           </div>
         </div>
-
-        {!configured && (
-          <div className="mt-3 flex items-start gap-2 rounded-xl border border-gold/25 bg-gold/[0.06] px-3 py-2.5">
-            <AlertTriangle
-              className="mt-0.5 h-4 w-4 shrink-0 text-gold"
-              strokeWidth={2.2}
-            />
-            <p className="text-[12px] leading-snug text-muted">
-              <span className="font-semibold text-fg">Modo demo.</span> Los
-              cambios no se guardan todavía. Completá{" "}
-              <code className="rounded bg-ink-2 px-1 py-0.5 font-mono text-[11px] text-gold">
-                .env.local
-              </code>{" "}
-              con tus claves de Supabase para persistir.
-            </p>
-          </div>
-        )}
       </section>
 
       {/* Bloque Semanal — placa dorada, distintivo ×5 */}

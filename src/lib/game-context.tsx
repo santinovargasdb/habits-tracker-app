@@ -16,7 +16,6 @@ interface GameContextValue {
   cards: Card[];
   inventory: OwnedCard[];
   deck: Deck;
-  configured: boolean;
   cardById: (id: string | null) => Card | undefined;
   /** Suma de multiplier_percent de cartas equipadas que afectan al bloque. */
   multiplierForBlock: (block: TimeBlock) => number;
@@ -43,13 +42,11 @@ export function GameProvider({
   cards,
   inventory: initialInventory,
   initialDeck,
-  configured,
   children,
 }: {
   cards: Card[];
   inventory: OwnedCard[];
   initialDeck: Deck;
-  configured: boolean;
   children: ReactNode;
 }) {
   const [deck, setDeck] = useState<Deck>(() => normalizeDeck(initialDeck));
@@ -111,22 +108,22 @@ export function GameProvider({
     [deck],
   );
 
-  // Persiste + reconcilia; revierte en caso de error real (no en modo demo).
+  // Persiste + reconcilia; revierte en caso de error.
   const persist = useCallback(
     (slotIndex: number, cardId: string | null, previous: Deck) => {
       void (async () => {
         const res = await setDeckSlot(slotIndex + 1, cardId); // DB: 1..8
-        if (configured && !res.persisted) {
+        if (!res.persisted) {
           setDeck(previous);
           setLastError("No se pudo guardar el mazo. Reintentá.");
           return;
         }
-        if (res.persisted && res.deck) {
+        if (res.deck) {
           setDeck(normalizeDeck(res.deck));
         }
       })();
     },
-    [configured],
+    [],
   );
 
   const equip = useCallback(
@@ -193,7 +190,6 @@ export function GameProvider({
     cards,
     inventory,
     deck,
-    configured,
     cardById,
     multiplierForBlock,
     slotOf,

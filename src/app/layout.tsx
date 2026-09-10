@@ -49,12 +49,12 @@ interface SessionChrome {
   email: string | null;
 }
 
-// Modo demo (sin backend): mostramos el chrome del juego igual.
-// Con backend: sólo mostramos header/wallet si hay usuario autenticado; en
-// /login (sin sesión) el layout renderiza la página sola.
+// Sólo mostramos header/wallet si hay usuario autenticado; en /login (sin
+// sesión) el layout renderiza la página sola. Sin backend configurado (p. ej.
+// un build local sin env) no hay sesión: renderizamos sin chrome.
 async function getSessionChrome(): Promise<SessionChrome> {
   const supabase = await getSupabase();
-  if (!supabase) return { showChrome: true, balance: 0, email: null };
+  if (!supabase) return { showChrome: false, balance: 0, email: null };
 
   const {
     data: { user },

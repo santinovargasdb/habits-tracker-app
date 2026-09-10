@@ -9,8 +9,6 @@ import {
   ROULETTE_COLORS,
   rouletteColor,
   rouletteColorMeta,
-  rouletteMultiplier,
-  spinRouletteNumber,
 } from "@/lib/constants";
 import type { RouletteColor } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -29,8 +27,8 @@ interface SpinOutcome {
   net: number;
 }
 
-export default function RouletteView({ configured }: { configured: boolean }) {
-  const { balance, setBalance, addToBalance } = useWallet();
+export default function RouletteView() {
+  const { balance, setBalance } = useWallet();
 
   const [choice, setChoice] = useState<RouletteColor | null>(null);
   const [betInput, setBetInput] = useState("");
@@ -61,33 +59,18 @@ export default function RouletteView({ configured }: { configured: boolean }) {
     }, 80);
 
     try {
-      let number: number;
-      let color: RouletteColor;
-      let won: boolean;
-      let net: number;
-
-      if (configured) {
-        const [res] = await Promise.all([spinRoulette(bet, choice), wait(1900)]);
-        clearInterval(iv);
-        if (!res.ok || res.resultNumber === null || res.resultColor === null) {
-          setDisplayNum(null);
-          showToast(res.insufficient ? "Saldo insuficiente." : "No se pudo girar.");
-          return;
-        }
-        number = res.resultNumber;
-        color = res.resultColor;
-        won = res.won;
-        net = (res.payout ?? 0) - bet;
-        if (res.newBalance !== null) setBalance(res.newBalance);
-      } else {
-        number = spinRouletteNumber();
-        color = rouletteColor(number);
-        won = color === choice;
-        net = won ? bet * rouletteMultiplier(color) - bet : -bet;
-        await wait(1900);
-        clearInterval(iv);
-        addToBalance(net);
+      const [res] = await Promise.all([spinRoulette(bet, choice), wait(1900)]);
+      clearInterval(iv);
+      if (!res.ok || res.resultNumber === null || res.resultColor === null) {
+        setDisplayNum(null);
+        showToast(res.insufficient ? "Saldo insuficiente." : "No se pudo girar.");
+        return;
       }
+      const number = res.resultNumber;
+      const color = res.resultColor;
+      const won = res.won;
+      const net = (res.payout ?? 0) - bet;
+      if (res.newBalance !== null) setBalance(res.newBalance);
 
       setDisplayNum(number);
       setOutcome({ number, color, won, net });

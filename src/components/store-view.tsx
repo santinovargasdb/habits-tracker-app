@@ -15,8 +15,6 @@ import {
   CHESTS,
   RARITY_META,
   RARITY_SEQUENCE,
-  pickRandomCardOfRarity,
-  rollRarity,
   type ChestConfig,
 } from "@/lib/constants";
 import type { Card } from "@/lib/types";
@@ -41,8 +39,8 @@ const CLOSED: RevealState = {
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export default function StoreView() {
-  const { balance, setBalance, addToBalance } = useWallet();
-  const { configured, cards, inventory, cardById, applyCardWin } = useGame();
+  const { balance, setBalance } = useWallet();
+  const { cardById, applyCardWin } = useGame();
 
   const [reveal, setReveal] = useState<RevealState>(CLOSED);
   const [busy, setBusy] = useState(false);
@@ -59,56 +57,34 @@ export default function StoreView() {
     setReveal({ ...CLOSED, phase: "opening", chest });
 
     try {
-      if (configured) {
-        const [res] = await Promise.all([
-          purchaseChest(chest.type, chest.cost),
-          wait(1300),
-        ]);
-        if (!res.ok || !res.wonCardId) {
-          setReveal(CLOSED);
-          showToast(
-            res.insufficient
-              ? "Saldo insuficiente."
-              : "No se pudo abrir el cofre. Reintentá.",
-          );
-          return;
-        }
-        const won = cardById(res.wonCardId);
-        if (!won) {
-          setReveal(CLOSED);
-          showToast("Carta desconocida.");
-          return;
-        }
-        if (res.newBalance !== null) setBalance(res.newBalance);
-        applyCardWin(res.wonCardId, res.newQuantity ?? undefined);
-        setReveal({
-          phase: "revealed",
-          chest,
-          card: won,
-          isNew: res.isNew,
-          quantity: res.newQuantity,
-        });
-      } else {
-        // Modo demo: simulamos el gacha en el cliente.
-        const rarity = rollRarity(chest.odds);
-        const won = pickRandomCardOfRarity(cards, rarity);
-        await wait(1300);
-        if (!won) {
-          setReveal(CLOSED);
-          return;
-        }
-        const existing =
-          inventory.find((o) => o.card.id === won.id)?.quantity ?? 0;
-        addToBalance(-chest.cost);
-        applyCardWin(won.id);
-        setReveal({
-          phase: "revealed",
-          chest,
-          card: won,
-          isNew: existing === 0,
-          quantity: existing + 1,
-        });
+      const [res] = await Promise.all([
+        purchaseChest(chest.type, chest.cost),
+        wait(1300),
+      ]);
+      if (!res.ok || !res.wonCardId) {
+        setReveal(CLOSED);
+        showToast(
+          res.insufficient
+            ? "Saldo insuficiente."
+            : "No se pudo abrir el cofre. Reintentá.",
+        );
+        return;
       }
+      const won = cardById(res.wonCardId);
+      if (!won) {
+        setReveal(CLOSED);
+        showToast("Carta desconocida.");
+        return;
+      }
+      if (res.newBalance !== null) setBalance(res.newBalance);
+      applyCardWin(res.wonCardId, res.newQuantity ?? undefined);
+      setReveal({
+        phase: "revealed",
+        chest,
+        card: won,
+        isNew: res.isNew,
+        quantity: res.newQuantity,
+      });
     } finally {
       setBusy(false);
     }

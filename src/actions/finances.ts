@@ -1,6 +1,6 @@
 "use server";
 
-import { getSupabase } from "@/lib/supabase/server";
+import { getSupabaseOrThrow } from "@/lib/supabase/server";
 import type {
   BlackjackRpcRow,
   BlackjackView,
@@ -26,10 +26,7 @@ export async function manageInvestment(
   fund: FundType,
   amount: number,
 ): Promise<ManageInvestmentResult> {
-  const supabase = await getSupabase();
-  if (!supabase) {
-    return { ok: false, persisted: false, newBalance: null, newInvested: null };
-  }
+  const supabase = await getSupabaseOrThrow();
 
   const { data, error } = await supabase.rpc("manage_investment", {
     p_action: action,
@@ -68,8 +65,7 @@ export interface InterestResult {
 }
 
 export async function calculateDailyInterest(): Promise<InterestResult> {
-  const supabase = await getSupabase();
-  if (!supabase) return { persisted: false, funds: null };
+  const supabase = await getSupabaseOrThrow();
 
   const { data, error } = await supabase.rpc("calculate_daily_interest");
   if (error) {
@@ -98,18 +94,7 @@ export async function spinRoulette(
   betAmount: number,
   choice: RouletteColor,
 ): Promise<SpinResult> {
-  const supabase = await getSupabase();
-  if (!supabase) {
-    return {
-      ok: false,
-      persisted: false,
-      resultNumber: null,
-      resultColor: null,
-      won: false,
-      payout: null,
-      newBalance: null,
-    };
-  }
+  const supabase = await getSupabaseOrThrow();
 
   const { data, error } = await supabase.rpc("spin_roulette", {
     p_bet_amount: betAmount,
@@ -174,8 +159,7 @@ async function callBlackjack(
   args: Record<string, unknown>,
   tag: string,
 ): Promise<BlackjackActionResult> {
-  const supabase = await getSupabase();
-  if (!supabase) return { ok: false, persisted: false, view: null };
+  const supabase = await getSupabaseOrThrow();
 
   const { data, error } = await supabase.rpc(rpc, args);
   if (error) {

@@ -5,8 +5,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 // -----------------------------------------------------------------------------
 // Cliente de Supabase para el navegador (componentes cliente: la página /login).
-// Devuelve null si faltan las env vars (modo demo), para que la UI pueda avisar
-// en lugar de romper.
+// Devuelve null sólo si faltan las env vars (p. ej. un build local sin
+// configurar); en producción siempre están presentes.
 // -----------------------------------------------------------------------------
 
 export function createSupabaseBrowserClient(): SupabaseClient | null {

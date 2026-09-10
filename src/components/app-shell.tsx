@@ -26,7 +26,6 @@ interface AppShellProps {
   inventory: OwnedCard[];
   initialDeck: Deck;
   initialInvestments: Investment[];
-  configured: boolean;
 }
 
 export default function AppShell({
@@ -38,17 +37,11 @@ export default function AppShell({
   inventory,
   initialDeck,
   initialInvestments,
-  configured,
 }: AppShellProps) {
   const [tab, setTab] = useState<AppTab>("tracker");
 
   return (
-    <GameProvider
-      cards={cards}
-      inventory={inventory}
-      initialDeck={initialDeck}
-      configured={configured}
-    >
+    <GameProvider cards={cards} inventory={inventory} initialDeck={initialDeck}>
       {/* Mantenemos ambas vistas montadas para preservar estado/scroll al alternar */}
       <div hidden={tab !== "tracker"}>
         <TrackerView
@@ -56,7 +49,6 @@ export default function AppShell({
           habits={habits}
           initialLogs={initialLogs}
           initialAwards={initialAwards}
-          configured={configured}
         />
       </div>
       <div hidden={tab !== "mazo"}>
@@ -66,10 +58,7 @@ export default function AppShell({
         <StoreView />
       </div>
       <div hidden={tab !== "finanzas"}>
-        <FinancesView
-          initialInvestments={initialInvestments}
-          configured={configured}
-        />
+        <FinancesView initialInvestments={initialInvestments} />
       </div>
 
       <BottomNav tab={tab} onChange={setTab} />

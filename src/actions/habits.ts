@@ -1,10 +1,10 @@
 "use server";
 
-import { getSupabase } from "@/lib/supabase/server";
+import { getSupabaseOrThrow } from "@/lib/supabase/server";
 import type { HabitStatus } from "@/lib/types";
 
 export interface SetStatusResult {
-  /** true si se persistió en Supabase (false en modo demo o ante error). */
+  /** true si se persistió en Supabase (false ante error del RPC). */
   persisted: boolean;
   /** Balance autoritativo devuelto por la DB (null si no se persistió). */
   balance: number | null;
@@ -24,12 +24,7 @@ export async function setHabitStatus(
   date: string,
   status: HabitStatus,
 ): Promise<SetStatusResult> {
-  const supabase = await getSupabase();
-
-  // Modo demo: no hay backend, el frontend conserva su estado optimista.
-  if (!supabase) {
-    return { persisted: false, balance: null, coinsAwarded: null, status };
-  }
+  const supabase = await getSupabaseOrThrow();
 
   const { data, error } = await supabase.rpc("set_habit_status", {
     p_habit_id: habitId,

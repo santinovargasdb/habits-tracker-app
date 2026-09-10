@@ -8,7 +8,8 @@ import { NextResponse, type NextRequest } from "next/server";
 //      la seguridad REAL la impone la RLS en la base + auth.uid() en los RPCs).
 //   3. Si ya hay sesión y estás en /login, te manda al inicio.
 //
-// Modo demo: sin env vars, no hace nada (deja pasar toda la navegación).
+// Sin env vars (build local sin configurar) el proxy es un no-op; en producción
+// las variables siempre están presentes.
 // -----------------------------------------------------------------------------
 
 function isPublicPath(path: string): boolean {
@@ -24,7 +25,7 @@ export async function updateSession(
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // Modo demo (sin backend): el proxy es un no-op.
+  // Sin backend configurado: el proxy es un no-op.
   if (!url || !key) return supabaseResponse;
 
   const supabase = createServerClient(url, key, {

@@ -1,12 +1,6 @@
 import AppShell from "@/components/app-shell";
 import { getSupabase } from "@/lib/supabase/server";
-import {
-  DEMO_INVENTORY,
-  DEMO_INVESTMENTS,
-  EMPTY_DECK,
-  SEED_CARDS,
-  SEED_HABITS,
-} from "@/lib/constants";
+import { EMPTY_DECK } from "@/lib/constants";
 import { todayISO, weekStartISO } from "@/lib/utils";
 import type {
   AwardMap,
@@ -24,13 +18,12 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
   const date = todayISO();
   const supabase = await getSupabase();
-  const configured = supabase !== null;
 
-  let habits: Habit[] = SEED_HABITS;
-  let cards: Card[] = SEED_CARDS;
-  let inventory: OwnedCard[] = DEMO_INVENTORY;
+  let habits: Habit[] = [];
+  let cards: Card[] = [];
+  let inventory: OwnedCard[] = [];
   let deck: Deck = EMPTY_DECK;
-  let investments: Investment[] = DEMO_INVESTMENTS;
+  let investments: Investment[] = [];
   const logs: LogMap = {};
   const awards: AwardMap = {};
 
@@ -152,7 +145,6 @@ export default async function Page() {
       inventory={inventory}
       initialDeck={deck}
       initialInvestments={investments}
-      configured={configured}
     />
   );
 }

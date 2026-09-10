@@ -33,6 +33,8 @@ export function ChestRevealModal({
   onClose,
 }: ChestRevealModalProps) {
   const [mounted, setMounted] = useState(false);
+  // Guard de montaje en cliente para createPortal (patrón intencional).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {

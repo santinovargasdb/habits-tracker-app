@@ -1,6 +1,6 @@
 "use server";
 
-import { getSupabase } from "@/lib/supabase/server";
+import { getSupabaseOrThrow } from "@/lib/supabase/server";
 import type { ChestType } from "@/lib/types";
 
 export interface PurchaseResult {
@@ -16,7 +16,7 @@ export interface PurchaseResult {
   error?: string;
 }
 
-const DEMO: PurchaseResult = {
+const FAILED: PurchaseResult = {
   ok: false,
   persisted: false,
   wonCardId: null,
@@ -27,15 +27,13 @@ const DEMO: PurchaseResult = {
 
 /**
  * Compra un cofre vía el RPC transaccional `purchase_chest`. El costo y las
- * probabilidades son autoritativos del servidor. En modo demo devuelve
- * persisted=false y el frontend simula la apertura localmente.
+ * probabilidades son autoritativos del servidor.
  */
 export async function purchaseChest(
   chestType: ChestType,
   cost: number,
 ): Promise<PurchaseResult> {
-  const supabase = await getSupabase();
-  if (!supabase) return DEMO;
+  const supabase = await getSupabaseOrThrow();
 
   const { data, error } = await supabase.rpc("purchase_chest", {
     p_chest_cost: cost,
@@ -45,12 +43,12 @@ export async function purchaseChest(
   if (error) {
     const insufficient = /insuficiente/i.test(error.message);
     console.error("[purchaseChest] RPC error:", error.message);
-    return { ...DEMO, persisted: true, insufficient, error: error.message };
+    return { ...FAILED, persisted: true, insufficient, error: error.message };
   }
 
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) {
-    return { ...DEMO, persisted: true, error: "Respuesta vacía del servidor" };
+    return { ...FAILED, persisted: true, error: "Respuesta vacía del servidor" };
   }
 
   return {

@@ -12,7 +12,6 @@ import type { FundType, Investment } from "@/lib/types";
 
 interface FinancesViewProps {
   initialInvestments: Investment[];
-  configured: boolean;
 }
 
 function parseAmount(raw: string): number {
@@ -22,7 +21,6 @@ function parseAmount(raw: string): number {
 
 export default function FinancesView({
   initialInvestments,
-  configured,
 }: FinancesViewProps) {
   const { balance, setBalance, addToBalance } = useWallet();
 
@@ -46,7 +44,6 @@ export default function FinancesView({
 
   // Interés diario: silencioso al montar.
   useEffect(() => {
-    if (!configured) return;
     let active = true;
     calculateDailyInterest().then((res) => {
       if (active && res.persisted && res.funds) {
@@ -60,7 +57,7 @@ export default function FinancesView({
     return () => {
       active = false;
     };
-  }, [configured]);
+  }, []);
 
   async function move(fund: FundType, action: "DEPOSIT" | "WITHDRAW") {
     if (busyFund) return;
@@ -86,7 +83,7 @@ export default function FinancesView({
 
     try {
       const res = await manageInvestment(action, fund, amount);
-      if (configured && !res.ok) {
+      if (!res.ok) {
         addToBalance(-walletDelta);
         setAmounts((a) => ({ ...a, [fund]: a[fund] - fundDelta }));
         showToast(res.insufficient ? "Saldo insuficiente." : "No se pudo procesar.");
@@ -220,7 +217,7 @@ export default function FinancesView({
       </section>
 
       {/* ---------------------------------------------------------- CASINO */}
-      <CasinoView configured={configured} />
+      <CasinoView />
 
       {toast && (
         <div

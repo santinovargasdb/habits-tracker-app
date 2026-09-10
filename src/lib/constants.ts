@@ -4,11 +4,8 @@ import type {
   ChestType,
   Deck,
   FundType,
-  Habit,
   HabitFrequency,
   HabitStatus,
-  Investment,
-  OwnedCard,
   RouletteColor,
   TimeBlock,
 } from "@/lib/types";
@@ -135,24 +132,6 @@ export const STATUS_META: Record<HabitStatus, StatusMeta> = {
 /** El control de 3 estados, en orden de presentación. */
 export const STATUS_SEQUENCE: HabitStatus[] = ["NONE", "MET", "SURPASSED"];
 
-// -----------------------------------------------------------------------------
-// Hábitos base (fallback demo).  Los UUIDs coinciden con supabase/seed.sql,
-// así la app es totalmente explorable aunque Supabase no esté configurado.
-// -----------------------------------------------------------------------------
-export const SEED_HABITS: Habit[] = [
-  { id: "11111111-1111-1111-1111-111111111111", name: "Despertar 5:30 AM", time_block: "Madrugada", sort_order: 1, frequency: "DAILY" },
-  { id: "22222222-2222-2222-2222-222222222222", name: "Trabajo (Mañana)", time_block: "Madrugada", sort_order: 2, frequency: "DAILY" },
-  { id: "33333333-3333-3333-3333-333333333333", name: "Lectura en el tren", time_block: "Viaje", sort_order: 3, frequency: "DAILY" },
-  { id: "44444444-4444-4444-4444-444444444444", name: "Repaso de Kanjis", time_block: "Viaje", sort_order: 4, frequency: "DAILY" },
-  { id: "55555555-5555-5555-5555-555555555555", name: "Entrenar MMA (15:30 - 17:00)", time_block: "Tarde", sort_order: 5, frequency: "DAILY" },
-  { id: "66666666-6666-6666-6666-666666666666", name: "Preparación Álgebra/Entropía", time_block: "Tarde", sort_order: 6, frequency: "DAILY" },
-  { id: "77777777-7777-7777-7777-777777777777", name: "Colegio secundario", time_block: "Noche", sort_order: 7, frequency: "DAILY" },
-  { id: "88888888-8888-8888-8888-888888888888", name: "Cierre a las 22:00", time_block: "Noche", sort_order: 8, frequency: "DAILY" },
-  // Bloque Semanal (WEEKLY): se registran una vez por semana y otorgan ×5.
-  { id: "99999999-9999-9999-9999-999999999999", name: "Planificar la semana", time_block: "Noche", sort_order: 9, frequency: "WEEKLY" },
-  { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", name: "Limpieza profunda / orden", time_block: "Tarde", sort_order: 10, frequency: "WEEKLY" },
-];
-
 // =============================================================================
 // Paso 2 — Cartas y mazo
 // =============================================================================
@@ -260,55 +239,6 @@ export function isMaxLevel(level: number): boolean {
   return level >= MAX_CARD_LEVEL;
 }
 
-// Cartas base (fallback demo, coinciden con supabase/02_cards_deck.sql).
-export const SEED_CARDS: Card[] = [
-  {
-    id: "aaaa1111-1111-1111-1111-111111111111",
-    name: "Libro de Viaje",
-    rarity: "Common",
-    target_block: "Viaje",
-    multiplier_percent: 10,
-    description:
-      "Aprovechá cada trayecto. +10% de monedas en los hábitos del bloque Viaje.",
-    image_url: "/cards/libro-de-viaje.svg",
-  },
-  {
-    id: "bbbb2222-2222-2222-2222-222222222222",
-    name: "Foco en la Ecuación",
-    rarity: "Rare",
-    target_block: "Tarde",
-    multiplier_percent: 15,
-    description:
-      "Concentración total sobre el problema. +15% de monedas en el bloque Tarde.",
-    image_url: "/cards/foco-en-la-ecuacion.svg",
-  },
-  {
-    id: "cccc3333-3333-3333-3333-333333333333",
-    name: "Cinturón Naranja",
-    rarity: "Epic",
-    target_block: "Tarde",
-    multiplier_percent: 20,
-    description: "Disciplina marcial pasiva. +20% de monedas en el bloque Tarde.",
-    image_url: "/cards/cinturon-naranja.svg",
-  },
-  {
-    id: "dddd4444-4444-4444-4444-444444444444",
-    name: "Voluntad de Acero",
-    rarity: "Legendary",
-    target_block: "Madrugada",
-    multiplier_percent: 25,
-    description: "Dominá el amanecer. +25% de monedas en el bloque Madrugada.",
-    image_url: "/cards/voluntad-de-acero.svg",
-  },
-];
-
-/** Inventario demo: el usuario posee una copia de cada carta. */
-export const DEMO_INVENTORY: OwnedCard[] = SEED_CARDS.map((card) => ({
-  card,
-  quantity: 1,
-  level: 1,
-}));
-
 // =============================================================================
 // Paso 3 — Cofres y gacha (Mercado)
 // =============================================================================
@@ -333,8 +263,8 @@ export interface ChestConfig {
   odds: ChestOdds;
 }
 
-// ⚠️ Estas probabilidades son sólo para mostrar en la UI y simular en modo demo.
-// En modo con Supabase, la fuente de verdad es el RPC purchase_chest (servidor).
+// ⚠️ Estas probabilidades son sólo para mostrarlas en la UI. La fuente de verdad
+// del gacha (costo y RNG) es el RPC purchase_chest en el servidor.
 export const CHESTS: ChestConfig[] = [
   {
     type: "BASICO",
@@ -364,28 +294,6 @@ export const CHESTS: ChestConfig[] = [
     odds: { Common: 0, Rare: 30, Epic: 60, Legendary: 10 },
   },
 ];
-
-/** Elige una rareza según los pesos del cofre (espeja el RNG del RPC). */
-export function rollRarity(odds: ChestOdds): CardRarity {
-  const roll = Math.random() * 100;
-  let acc = 0;
-  for (const rarity of RARITY_SEQUENCE) {
-    acc += odds[rarity];
-    if (roll < acc) return rarity;
-  }
-  return "Legendary";
-}
-
-/** Carta aleatoria de una rareza; si no hay, cae a cualquiera del catálogo. */
-export function pickRandomCardOfRarity(
-  cards: Card[],
-  rarity: CardRarity,
-): Card | undefined {
-  const pool = cards.filter((c) => c.rarity === rarity);
-  const list = pool.length > 0 ? pool : cards;
-  if (list.length === 0) return undefined;
-  return list[Math.floor(Math.random() * list.length)];
-}
 
 // =============================================================================
 // Paso 4 — Finanzas (inversión + ruleta)
@@ -421,22 +329,6 @@ export const FUND_META: Record<FundType, FundMeta> = {
 
 export const FUND_ORDER: FundType[] = ["CONSERVATIVE", "AGGRESSIVE"];
 
-/** Inversiones demo (ambos fondos en 0). */
-export const DEMO_INVESTMENTS: Investment[] = [
-  {
-    id: "demo-conservative",
-    fund_type: "CONSERVATIVE",
-    invested_amount: 0,
-    last_compounded_at: "1970-01-01T00:00:00.000Z",
-  },
-  {
-    id: "demo-aggressive",
-    fund_type: "AGGRESSIVE",
-    invested_amount: 0,
-    last_compounded_at: "1970-01-01T00:00:00.000Z",
-  },
-];
-
 // -----------------------------------------------------------------------------
 // Ruleta europea por color (Paso 7) — 37 casillas: 18 rojas / 18 negras / 1 verde.
 // El mapa de colores es el auténtico de la ruleta europea (alternan como en una
@@ -452,16 +344,6 @@ export const ROULETTE_BLACK: number[] = [
 export function rouletteColor(n: number): RouletteColor {
   if (n === 0) return "GREEN";
   return ROULETTE_RED.includes(n) ? "RED" : "BLACK";
-}
-
-/** Pago TOTAL sobre la apuesta: Verde ×14 · Rojo/Negro ×2. */
-export function rouletteMultiplier(color: RouletteColor): number {
-  return color === "GREEN" ? 14 : 2;
-}
-
-/** RNG de la casilla ganadora (0..36) — modo demo, espeja el RPC. */
-export function spinRouletteNumber(): number {
-  return Math.floor(Math.random() * 37);
 }
 
 export interface RouletteColorMeta {

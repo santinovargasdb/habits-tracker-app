@@ -13,7 +13,7 @@ const TABS: [CasinoTab, string][] = [
   ["blackjack", "Blackjack"],
 ];
 
-export default function CasinoView({ configured }: { configured: boolean }) {
+export default function CasinoView() {
   const [tab, setTab] = useState<CasinoTab>("ruleta");
 
   return (
@@ -49,10 +49,10 @@ export default function CasinoView({ configured }: { configured: boolean }) {
 
       {/* Ambas montadas: preserva la mano de blackjack en curso al alternar. */}
       <div hidden={tab !== "ruleta"}>
-        <RouletteView configured={configured} />
+        <RouletteView />
       </div>
       <div hidden={tab !== "blackjack"}>
-        <BlackjackView configured={configured} />
+        <BlackjackView />
       </div>
     </section>
   );

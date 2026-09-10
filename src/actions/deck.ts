@@ -1,12 +1,12 @@
 "use server";
 
-import { getSupabase } from "@/lib/supabase/server";
+import { getSupabaseOrThrow } from "@/lib/supabase/server";
 import type { Deck } from "@/lib/types";
 import { DECK_SIZE } from "@/lib/constants";
 
 export interface SetDeckResult {
   persisted: boolean;
-  /** Mazo autoritativo (8 slots) devuelto por la DB, o null en modo demo/error. */
+  /** Mazo autoritativo (8 slots) devuelto por la DB, o null ante error. */
   deck: Deck | null;
   error?: string;
 }
@@ -23,11 +23,7 @@ export async function setDeckSlot(
     return { persisted: false, deck: null, error: "Slot inválido" };
   }
 
-  const supabase = await getSupabase();
-  if (!supabase) {
-    // Modo demo: el frontend conserva su mazo optimista.
-    return { persisted: false, deck: null };
-  }
+  const supabase = await getSupabaseOrThrow();
 
   const { data, error } = await supabase.rpc("set_deck_slot", {
     p_slot: slotIndex,

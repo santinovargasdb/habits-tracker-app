@@ -27,7 +27,6 @@ export default function DeckView() {
   const {
     deck,
     inventory,
-    configured,
     cardById,
     slotOf,
     isEquipped,
@@ -99,7 +98,7 @@ export default function DeckView() {
 
     try {
       const res = await upgradeCard(card.id);
-      if (configured && !res.ok) {
+      if (!res.ok) {
         addToBalance(cost);
         applyUpgrade(card.id, lvl, owned.quantity);
         showNote(

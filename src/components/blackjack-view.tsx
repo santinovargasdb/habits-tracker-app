@@ -9,12 +9,7 @@ import {
   cardIsRed,
   cardRankLabel,
   cardSuitSymbol,
-  demoDeal,
-  demoHit,
-  demoStand,
   resultText,
-  toView,
-  type DemoGame,
 } from "@/lib/blackjack";
 import type { BlackjackView } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -84,15 +79,14 @@ function Hand({
   );
 }
 
-export default function BlackjackView({ configured }: { configured: boolean }) {
-  const { balance, setBalance, addToBalance } = useWallet();
+export default function BlackjackView() {
+  const { balance, setBalance } = useWallet();
 
   const [view, setView] = useState<BlackjackView | null>(null);
   const [betInput, setBetInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [delta, setDelta] = useState<{ id: number; amount: number } | null>(null);
-  const demoRef = useRef<DemoGame | null>(null);
   const burstId = useRef(0);
 
   const bet = parseAmount(betInput);
@@ -116,24 +110,14 @@ export default function BlackjackView({ configured }: { configured: boolean }) {
     setBusy(true);
     setDelta(null);
     try {
-      if (configured) {
-        const res = await bjDeal(bet);
-        if (!res.ok || !res.view) {
-          showToast(res.insufficient ? "Saldo insuficiente." : "No se pudo repartir.");
-          return;
-        }
-        if (res.view.newBalance !== null) setBalance(res.view.newBalance);
-        setView(res.view);
-        settleDelta(res.view);
-      } else {
-        addToBalance(-bet);
-        const g = demoDeal(bet);
-        demoRef.current = g;
-        if (g.status === "DONE" && g.payout > 0) addToBalance(g.payout);
-        const v = toView(g);
-        setView(v);
-        settleDelta(v);
+      const res = await bjDeal(bet);
+      if (!res.ok || !res.view) {
+        showToast(res.insufficient ? "Saldo insuficiente." : "No se pudo repartir.");
+        return;
       }
+      if (res.view.newBalance !== null) setBalance(res.view.newBalance);
+      setView(res.view);
+      settleDelta(res.view);
     } finally {
       setBusy(false);
     }
@@ -143,22 +127,14 @@ export default function BlackjackView({ configured }: { configured: boolean }) {
     if (busy || !playing) return;
     setBusy(true);
     try {
-      if (configured) {
-        const res = await bjHit();
-        if (!res.ok || !res.view) {
-          showToast("No se pudo pedir carta.");
-          return;
-        }
-        if (res.view.newBalance !== null) setBalance(res.view.newBalance);
-        setView(res.view);
-        settleDelta(res.view);
-      } else {
-        const g = demoHit(demoRef.current as DemoGame);
-        demoRef.current = g;
-        const v = toView(g);
-        setView(v);
-        settleDelta(v); // bust: net = -bet (la apuesta ya se descontó)
+      const res = await bjHit();
+      if (!res.ok || !res.view) {
+        showToast("No se pudo pedir carta.");
+        return;
       }
+      if (res.view.newBalance !== null) setBalance(res.view.newBalance);
+      setView(res.view);
+      settleDelta(res.view);
     } finally {
       setBusy(false);
     }
@@ -168,30 +144,20 @@ export default function BlackjackView({ configured }: { configured: boolean }) {
     if (busy || !playing) return;
     setBusy(true);
     try {
-      if (configured) {
-        const res = await bjStand();
-        if (!res.ok || !res.view) {
-          showToast("No se pudo plantar.");
-          return;
-        }
-        if (res.view.newBalance !== null) setBalance(res.view.newBalance);
-        setView(res.view);
-        settleDelta(res.view);
-      } else {
-        const g = demoStand(demoRef.current as DemoGame);
-        demoRef.current = g;
-        if (g.payout > 0) addToBalance(g.payout);
-        const v = toView(g);
-        setView(v);
-        settleDelta(v);
+      const res = await bjStand();
+      if (!res.ok || !res.view) {
+        showToast("No se pudo plantar.");
+        return;
       }
+      if (res.view.newBalance !== null) setBalance(res.view.newBalance);
+      setView(res.view);
+      settleDelta(res.view);
     } finally {
       setBusy(false);
     }
   }
 
   function playAgain() {
-    demoRef.current = null;
     setDelta(null);
     setView(null);
   }

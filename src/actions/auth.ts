@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getSupabase } from "@/lib/supabase/server";
+import { getSupabase, getSupabaseOrThrow } from "@/lib/supabase/server";
 
 export interface AuthState {
   error?: string;
@@ -40,10 +40,7 @@ export async function login(
   const { email, password } = parseCredentials(formData);
   if (!email || !password) return { error: "Ingresá tu email y contraseña." };
 
-  const supabase = await getSupabase();
-  if (!supabase) {
-    return { error: "Supabase no está configurado: la app corre en modo demo." };
-  }
+  const supabase = await getSupabaseOrThrow();
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: translate(error.message) };
@@ -61,10 +58,7 @@ export async function signup(
     return { error: "La contraseña debe tener al menos 6 caracteres." };
   }
 
-  const supabase = await getSupabase();
-  if (!supabase) {
-    return { error: "Supabase no está configurado: la app corre en modo demo." };
-  }
+  const supabase = await getSupabaseOrThrow();
 
   const origin = await siteOrigin();
   const { data, error } = await supabase.auth.signUp({

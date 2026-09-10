@@ -1,6 +1,6 @@
 "use server";
 
-import { getSupabase } from "@/lib/supabase/server";
+import { getSupabaseOrThrow } from "@/lib/supabase/server";
 
 export interface UpgradeResult {
   ok: boolean;
@@ -16,20 +16,9 @@ export interface UpgradeResult {
 
 /**
  * Mejora una carta del inventario vía el RPC transaccional `upgrade_card`.
- * En modo demo devuelve persisted=false y el frontend simula la mejora.
  */
 export async function upgradeCard(cardId: string): Promise<UpgradeResult> {
-  const supabase = await getSupabase();
-  if (!supabase) {
-    return {
-      ok: false,
-      persisted: false,
-      newLevel: null,
-      newMultiplier: null,
-      newQuantity: null,
-      newBalance: null,
-    };
-  }
+  const supabase = await getSupabaseOrThrow();
 
   const { data, error } = await supabase.rpc("upgrade_card", {
     p_card_id: cardId,
