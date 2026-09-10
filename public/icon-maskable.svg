@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="coinm" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="0.5" stop-color="#f6c445"/>
+      <stop offset="1" stop-color="#d98e1f"/>
+    </linearGradient>
+  </defs>
+  <!-- Fondo a sangre completa para el recorte maskable -->
+  <rect width="512" height="512" fill="#0b0b0f"/>
+  <!-- Contenido dentro del área segura (~80%) -->
+  <circle cx="256" cy="256" r="96" fill="url(#coinm)"/>
+  <circle cx="256" cy="256" r="96" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="3"/>
+  <text x="256" y="258" text-anchor="middle" dominant-baseline="central"
+        font-family="'Hiragino Kaku Gothic Pro','Yu Gothic',sans-serif"
+        font-size="104" font-weight="800" fill="#0b0b0f">道</text>
+</svg>

@@ -1,26 +1,284 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ==========================================================================
+   Dojo Ledger — Sistema de diseño ("dark arcade ledger")
+   ========================================================================== */
+@theme {
+  /* Superficies / tinta */
+  --color-ink: #0b0b0f;
+  --color-ink-2: #0f0f16;
+  --color-surface: #16161f;
+  --color-surface-2: #1e1e29;
+  --color-line: #2a2a37;
+
+  /* Texto */
+  --color-fg: #ededf2;
+  --color-muted: #9797a6;
+
+  /* Economía / estados */
+  --color-gold: #f6c445;
+  --color-gold-deep: #d98e1f;
+  --color-fire: #ff7a3d;
+  --color-met: #3ecf8e;
+  --color-danger: #ff6b6b;
+
+  /* Acentos por bloque horario */
+  --color-madrugada: #f4a15d;
+  --color-viaje: #5eb0ef;
+  --color-tarde: #ff7a4d;
+  --color-noche: #9b8bf5;
 }
 
+/* Fuentes (next/font inyecta las variables --ff-* en <html>). */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-display: var(--ff-display);
+  --font-body: var(--ff-body);
+  --font-mono: var(--ff-mono);
+  --font-sans: var(--ff-body);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    font-family: var(--ff-body), ui-sans-serif, system-ui, sans-serif;
+    color: var(--color-fg);
+    background-color: var(--color-ink);
+    /* Atmósfera: brillo dorado arriba + halo índigo en la esquina. */
+    background-image:
+      radial-gradient(
+        130% 80% at 50% -12%,
+        rgba(246, 196, 69, 0.11),
+        transparent 60%
+      ),
+      radial-gradient(
+        70% 55% at 100% 0%,
+        rgba(155, 139, 245, 0.07),
+        transparent 55%
+      );
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Grano/ruido sutil sobre todo el fondo. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.04;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  ::selection {
+    background: var(--color-gold);
+    color: var(--color-ink);
+  }
+
+  /* Scrollbar afinada */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line) transparent;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ==========================================================================
+   Animaciones
+   ========================================================================== */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes coin-float {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.7);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-42px) scale(1);
+  }
+}
+
+@keyframes pulse-gold {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.14);
+  }
+}
+
+@keyframes sheen {
+  0% {
+    background-position: -140% 0;
+  }
+  100% {
+    background-position: 240% 0;
+  }
+}
+
+@keyframes ring-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes chest-shake {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  15% {
+    transform: translateX(-7px) rotate(-7deg);
+  }
+  30% {
+    transform: translateX(7px) rotate(7deg);
+  }
+  45% {
+    transform: translateX(-6px) rotate(-5deg);
+  }
+  60% {
+    transform: translateX(6px) rotate(5deg);
+  }
+  78% {
+    transform: translateX(-3px) rotate(-2deg);
+  }
+}
+
+@keyframes reveal-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) translateY(14px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.09);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes glow-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.09) rotate(8deg);
+  }
+}
+
+@keyframes level-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(246, 196, 69, 0);
+    transform: scale(1);
+  }
+  35% {
+    box-shadow: 0 0 34px 8px rgba(246, 196, 69, 0.85);
+    transform: scale(1.05);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(246, 196, 69, 0);
+    transform: scale(1);
+  }
+}
+
+.animate-rise {
+  animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-coin-float {
+  animation: coin-float 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-pulse-gold {
+  animation: pulse-gold 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-fade-in {
+  animation: fade-in 0.25s ease-out both;
+}
+
+.animate-sheet-in {
+  animation: sheet-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-sheen {
+  animation: sheen 2.6s linear infinite;
+}
+
+.animate-chest-shake {
+  animation: chest-shake 0.6s ease-in-out infinite;
+}
+
+.animate-reveal-pop {
+  animation: reveal-pop 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-glow-breathe {
+  animation: glow-breathe 2.4s ease-in-out infinite;
+}
+
+.animate-level-flash {
+  animation: level-flash 0.7s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .animate-coin-float,
+  .animate-pulse-gold,
+  .animate-sheet-in,
+  .animate-sheen,
+  .animate-chest-shake,
+  .animate-reveal-pop,
+  .animate-glow-breathe,
+  .animate-level-flash {
+    animation: none !important;
+  }
 }
