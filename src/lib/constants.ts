@@ -346,6 +346,16 @@ export function rouletteColor(n: number): RouletteColor {
   return ROULETTE_RED.includes(n) ? "RED" : "BLACK";
 }
 
+/**
+ * Orden FÍSICO de las casillas en la rueda europea (single-zero), en sentido
+ * horario empezando por el 0. Lo usa la rueda visual (roulette-wheel.tsx) para
+ * ubicar cada número y calcular el ángulo de frenado bajo la aguja superior.
+ */
+export const EUROPEAN_WHEEL: number[] = [
+  0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24,
+  16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
+];
+
 export interface RouletteColorMeta {
   key: RouletteColor;
   label: string;

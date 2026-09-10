@@ -1,19 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dices } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RouletteWheel, WHEEL_SEG_ANGLE } from "@/components/roulette-wheel";
 import { spinRoulette } from "@/actions/finances";
 import { useWallet } from "@/lib/wallet-context";
-import {
-  ROULETTE_COLORS,
-  rouletteColor,
-  rouletteColorMeta,
-} from "@/lib/constants";
+import { EUROPEAN_WHEEL, ROULETTE_COLORS, rouletteColorMeta } from "@/lib/constants";
 import type { RouletteColor } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// Vueltas completas + frenado suave. La rueda gira SPIN_TURNS vueltas y encima
+// suma el ángulo que alinea el número ganador con la aguja superior.
+const SPIN_TURNS = 5;
+const SPIN_MS = 4200;
 
 function parseAmount(raw: string): number {
   const n = Math.floor(Number(raw.replace(/[^\d]/g, "")));
@@ -27,17 +27,30 @@ interface SpinOutcome {
   net: number;
 }
 
+interface PendingResult extends SpinOutcome {
+  newBalance: number | null;
+}
+
 export default function RouletteView() {
   const { balance, setBalance } = useWallet();
 
   const [choice, setChoice] = useState<RouletteColor | null>(null);
   const [betInput, setBetInput] = useState("");
   const [spinning, setSpinning] = useState(false);
-  const [displayNum, setDisplayNum] = useState<number | null>(null);
+  const [rotation, setRotation] = useState(0);
   const [outcome, setOutcome] = useState<SpinOutcome | null>(null);
   const [delta, setDelta] = useState<{ id: number; amount: number } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const burstId = useRef(0);
+  const pendingRef = useRef<PendingResult | null>(null);
+  const restTimer = useRef<number | null>(null);
+
+  // Limpia el timer de frenado si el componente se desmonta a mitad de giro.
+  useEffect(() => {
+    return () => {
+      if (restTimer.current) window.clearTimeout(restTimer.current);
+    };
+  }, []);
 
   const bet = parseAmount(betInput);
   const canSpin = !spinning && choice !== null && bet > 0 && bet <= balance;
@@ -53,89 +66,118 @@ export default function RouletteView() {
     setOutcome(null);
     setDelta(null);
 
-    // Ciclado visual de números.
-    const iv = setInterval(() => {
-      setDisplayNum(Math.floor(Math.random() * 37));
-    }, 80);
-
     try {
-      const [res] = await Promise.all([spinRoulette(bet, choice), wait(1900)]);
-      clearInterval(iv);
+      // El backend es la fuente de verdad (número, color, pago y balance).
+      const res = await spinRoulette(bet, choice);
       if (!res.ok || res.resultNumber === null || res.resultColor === null) {
-        setDisplayNum(null);
+        setSpinning(false);
         showToast(res.insufficient ? "Saldo insuficiente." : "No se pudo girar.");
         return;
       }
-      const number = res.resultNumber;
-      const color = res.resultColor;
-      const won = res.won;
-      const net = (res.payout ?? 0) - bet;
-      if (res.newBalance !== null) setBalance(res.newBalance);
 
-      setDisplayNum(number);
-      setOutcome({ number, color, won, net });
-      burstId.current += 1;
-      setDelta({ id: burstId.current, amount: net });
-      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-        navigator.vibrate?.(won ? [12, 40, 12] : 40);
-      }
-    } finally {
+      const number = res.resultNumber;
+      const idx = EUROPEAN_WHEEL.indexOf(number);
+
+      // Ángulo (mod 360) que deja el número ganador bajo la aguja superior.
+      const targetMod = (((360 - idx * WHEEL_SEG_ANGLE) % 360) + 360) % 360;
+      setRotation((prev) => {
+        const currentMod = ((prev % 360) + 360) % 360;
+        const forward = (((targetMod - currentMod) % 360) + 360) % 360;
+        // Siempre hacia adelante: N vueltas completas + el ajuste de alineación.
+        return prev + 360 * SPIN_TURNS + forward;
+      });
+
+      // Reservamos el resultado y lo aplicamos SÓLO cuando la rueda frena.
+      pendingRef.current = {
+        number,
+        color: res.resultColor,
+        won: res.won,
+        net: (res.payout ?? 0) - bet,
+        newBalance: res.newBalance,
+      };
+      if (restTimer.current) window.clearTimeout(restTimer.current);
+      restTimer.current = window.setTimeout(settle, SPIN_MS + 60);
+    } catch {
       setSpinning(false);
+      showToast("No se pudo girar.");
     }
   }
 
-  const shownColor = displayNum !== null ? rouletteColor(displayNum) : null;
-  const shownMeta = shownColor ? rouletteColorMeta(shownColor) : null;
-  const bigWin = !spinning && outcome?.won && outcome.color === "GREEN";
+  // Se ejecuta cuando la rueda se detiene: revela el resultado y recién ahí
+  // actualiza el saldo de la wallet.
+  function settle() {
+    const p = pendingRef.current;
+    if (!p) return;
+    pendingRef.current = null;
+
+    if (p.newBalance !== null) setBalance(p.newBalance);
+    setOutcome({ number: p.number, color: p.color, won: p.won, net: p.net });
+    burstId.current += 1;
+    setDelta({ id: burstId.current, amount: p.net });
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate?.(p.won ? [12, 40, 12] : 40);
+    }
+    setSpinning(false);
+  }
 
   function bumpBet(n: number) {
     setBetInput(String(Math.min(bet + n, balance)));
   }
 
+  const outcomeMeta = outcome ? rouletteColorMeta(outcome.color) : null;
+  const bigWin = !spinning && outcome?.won === true && outcome.color === "GREEN";
+
+  const wheelCenter = outcome ? (
+    <span
+      className="font-display text-2xl font-extrabold tabular-nums"
+      style={{ color: outcomeMeta?.accent }}
+    >
+      {outcome.number}
+    </span>
+  ) : (
+    <span className="font-display text-xl font-bold text-muted/70">道</span>
+  );
+
   return (
     <article className="animate-rise relative overflow-hidden rounded-2xl border border-line bg-surface/80 p-5">
-      {/* Display del giro */}
-      <div className="relative grid h-40 place-items-center overflow-hidden rounded-2xl border border-line bg-ink-2">
+      {/* Rueda */}
+      <div className="relative flex flex-col items-center">
+        {/* Glow según el resultado. */}
         <span
           aria-hidden
           className={cn(
-            "pointer-events-none absolute h-44 w-44 rounded-full blur-3xl transition-opacity",
-            bigWin ? "opacity-70" : "opacity-25",
+            "pointer-events-none absolute top-6 h-56 w-56 rounded-full blur-3xl transition-opacity duration-500",
+            outcome ? (bigWin ? "opacity-70" : outcome.won ? "opacity-50" : "opacity-20") : "opacity-15",
           )}
-          style={{ backgroundColor: `${shownMeta?.accent ?? "#9797a6"}55` }}
+          style={{ backgroundColor: `${outcomeMeta?.accent ?? "#9797a6"}55` }}
         />
-        <div className={cn("relative flex flex-col items-center", bigWin && "animate-pulse-gold")}>
-          <span
-            className={cn(
-              "grid h-24 w-24 place-items-center rounded-2xl font-display font-extrabold leading-none tabular-nums shadow-lg transition-all",
-              spinning ? "text-5xl" : "text-6xl",
-            )}
-            style={{
-              backgroundColor: shownMeta?.swatch ?? "#16161f",
-              color: shownMeta?.ink ?? "#ededf2",
-              boxShadow: `0 12px 34px -12px ${shownMeta?.accent ?? "#000"}aa`,
-            }}
-          >
-            {displayNum ?? "–"}
-          </span>
-          <span
-            className="mt-2 font-mono text-[11px] uppercase tracking-[0.22em]"
-            style={{ color: shownMeta?.accent ?? "#9797a6" }}
-          >
-            {spinning
-              ? "Girando…"
-              : outcome
-                ? `${shownMeta?.label} · ${outcome.won ? "¡Ganaste!" : "Perdiste"}`
-                : "Elegí color y apostá"}
-          </span>
+
+        <div className={cn("relative", bigWin && "animate-pulse-gold")}>
+          <RouletteWheel
+            rotation={rotation}
+            durationMs={SPIN_MS}
+            spinning={spinning}
+            center={wheelCenter}
+          />
         </div>
+
+        <p
+          className="relative mt-3 font-mono text-[11px] uppercase tracking-[0.22em]"
+          style={{ color: outcomeMeta?.accent ?? "#9797a6" }}
+        >
+          {spinning
+            ? "Girando…"
+            : outcome
+              ? `${outcomeMeta?.label} · ${outcome.won ? "¡Ganaste!" : "Perdiste"}`
+              : "Elegí color y apostá"}
+        </p>
 
         {delta && (
           <span
             key={delta.id}
             onAnimationEnd={() => setDelta(null)}
             className={cn(
-              "animate-coin-float pointer-events-none absolute right-5 top-4 z-10 flex items-center gap-0.5 font-mono text-base font-bold",
+              "animate-coin-float pointer-events-none absolute right-2 top-2 z-10 flex items-center gap-0.5 font-mono text-base font-bold",
               delta.amount > 0 ? "text-gold" : delta.amount < 0 ? "text-danger" : "text-muted",
             )}
           >
@@ -147,7 +189,7 @@ export default function RouletteView() {
       </div>
 
       {/* Selección de color */}
-      <div className="mt-4 grid grid-cols-3 gap-2">
+      <div className="mt-5 grid grid-cols-3 gap-2">
         {ROULETTE_COLORS.map((c) => {
           const active = choice === c.key;
           return (
