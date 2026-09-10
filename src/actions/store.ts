@@ -34,7 +34,7 @@ export async function purchaseChest(
   chestType: ChestType,
   cost: number,
 ): Promise<PurchaseResult> {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
   if (!supabase) return DEMO;
 
   const { data, error } = await supabase.rpc("purchase_chest", {

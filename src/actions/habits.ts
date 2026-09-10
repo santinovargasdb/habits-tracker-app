@@ -24,7 +24,7 @@ export async function setHabitStatus(
   date: string,
   status: HabitStatus,
 ): Promise<SetStatusResult> {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   // Modo demo: no hay backend, el frontend conserva su estado optimista.
   if (!supabase) {

@@ -32,6 +32,7 @@ npm run dev      # http://localhost:3000  (arranca en modo demo)
    - `supabase/03_store_chests.sql` → RPC `purchase_chest` (tienda de cofres / gacha) (Paso 3).
    - `supabase/04_finances.sql` → `investments` + RPCs `manage_investment`, `calculate_daily_interest`, `spin_roulette` (Paso 4).
    - `supabase/05_card_levels.sql` → `effective_multiplier`, `deck_multiplier_percent` (con nivel) + RPC `upgrade_card` (Paso 5).
+   - `supabase/06_auth_rls.sql` → **auth multiusuario**: `user_id` en todas las tablas, trigger de seed por usuario, RLS estricta (`auth.uid()`) y cierre del acceso anónimo (Paso 6). Ver §6b.
 3. **Project Settings → API**: copiá la _Project URL_ y la _anon public key_.
 4. Copiá el ejemplo de env y completalo:
    ```bash
@@ -163,18 +164,23 @@ supabase/
   03_store_chests.sql # (P3) RPC purchase_chest (RNG + upsert inventario, transaccional)
   04_finances.sql     # (P4) investments + manage_investment / calculate_daily_interest / spin_roulette
   05_card_levels.sql  # (P5) effective_multiplier + deck_multiplier_percent (con nivel) + upgrade_card
+  06_auth_rls.sql     # (P6) user_id + trigger de seed por usuario + RLS estricta (auth.uid) + cierre anon
 src/
+  proxy.ts            # (P6) Proxy Next 16 (ex-middleware): refresca sesión + protege rutas privadas
   app/
-    layout.tsx        # fuentes, metadata/PWA, WalletProvider + Header (balance inicial SSR)
+    layout.tsx        # fuentes, metadata/PWA; chrome (Header+Wallet) sólo con sesión (o en demo)
     page.tsx          # server: fetch hábitos+logs+cartas+inventario+mazo → AppShell
     manifest.ts       # PWA manifest (/manifest.webmanifest)
     globals.css       # sistema de diseño (tokens, atmósfera, animaciones)
+    login/page.tsx    # (P6) login/signup email+password (client component)
+    auth/confirm/route.ts  # (P6) verifica el link de confirmación de email (verifyOtp)
   actions/
     habits.ts         # (P1) Server Action → RPC set_habit_status (reconcilia balance + coins)
     deck.ts           # (P2) Server Action → RPC set_deck_slot (equipar/quitar)
     store.ts          # (P3) Server Action → RPC purchase_chest (compra de cofre)
     finances.ts       # (P4) Server Actions → manage_investment / calculate_daily_interest / spin_roulette
     cards.ts          # (P5) Server Action → upgrade_card (subida de nivel)
+    auth.ts           # (P6) Server Actions → login / signup / logout
   components/
     app-shell.tsx               # tabs Tracker/Mazo/Mercado + GameProvider
     bottom-nav.tsx              # navegación inferior fija (3 tabs)
@@ -190,16 +196,43 @@ src/
     ui/button.tsx · ui/drawer.tsx · ui/badge.tsx  # primitivos estilo shadcn (drawer/modal vía portal)
   lib/
     types.ts · constants.ts · utils.ts
-    supabase/server.ts          # cliente server (null → modo demo)
+    supabase/server.ts          # (P6) cliente server por-request con cookies (@supabase/ssr; null → demo)
+    supabase/client.ts          # (P6) cliente browser (login)
+    supabase/session.ts         # (P6) refresh de sesión + gate de rutas (usado por proxy.ts)
     wallet-context.tsx · game-context.tsx · use-count-up.ts
 public/
   sw.js · icon.svg · icon-maskable.svg
 ```
 
+## 6b. Autenticación y RLS multiusuario (Paso 6)
+
+La app pasó de "single-user MVP" a **multiusuario con Supabase Auth**:
+
+- **Email/Password** con confirmación de email. Página `/login` (login + signup) y
+  logout desde el header.
+- **`proxy.ts`** (Next 16 renombró `middleware` → `proxy`) refresca la sesión y
+  redirige a `/login` a quien no esté autenticado. Es un chequeo optimista de UX:
+  la seguridad **real** la impone la RLS en la base.
+- **RLS estricta:** cada tabla de datos tiene `user_id` y una política
+  `user_id = auth.uid()`. Los RPCs (`set_habit_status`, `purchase_chest`, …) se
+  reescribieron para operar con `auth.uid()`; el acceso `anon` quedó revocado.
+- **Alta de usuario:** un trigger en `auth.users` siembra por cada usuario nuevo su
+  wallet, los 8 hábitos, los 2 fondos, un mazo vacío y una copia de cada carta.
+- **Fresh start:** los datos creados antes del Paso 6 quedan con `user_id` NULL e
+  invisibles bajo RLS (no se borran, pero ya no se ven).
+
+**Configuración en el dashboard de Supabase:**
+
+1. **Authentication → Providers → Email:** habilitado, con **"Confirm email"** ON.
+2. **Authentication → URL Configuration:** seteá el _Site URL_ (ej. `http://localhost:3000`)
+   y agregá `…/auth/confirm` a los _Redirect URLs_.
+3. **Authentication → Email Templates → Confirm signup:** que el link apunte a
+   `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`.
+
+> **Modo demo intacto:** sin variables de entorno de Supabase, el `proxy` es un
+> no-op y la app sigue siendo explorable sin login.
+
 ## 6. Notas del MVP
 
-- **Sin auth todavía:** RLS está habilitado con políticas permisivas para el rol
-  anónimo (ver comentarios en `schema.sql`). En el paso de autenticación,
-  reemplazalas por políticas basadas en `auth.uid()` y quitá el acceso anónimo.
 - **PWA:** el service worker se registra solo en producción (`npm run build && npm start`)
   para no cachear el bundle en desarrollo.

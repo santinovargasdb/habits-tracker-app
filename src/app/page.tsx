@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const date = todayISO();
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
   const configured = supabase !== null;
 
   let habits: Habit[] = SEED_HABITS;

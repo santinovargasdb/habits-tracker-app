@@ -1,14 +1,16 @@
 import "server-only";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // -----------------------------------------------------------------------------
-// Cliente de Supabase para el servidor (Server Components + Server Actions).
-// El MVP no tiene auth todavía: usamos la ANON KEY con RLS permisivo.
-// Si las variables de entorno no están, devolvemos null y la app entra en
-// "modo demo" (UI totalmente explorable, sin persistencia).
+// Cliente de Supabase POR-REQUEST para Server Components y Server Actions.
+// Con auth multiusuario (Paso 6) usamos @supabase/ssr: el cliente lee/escribe la
+// sesión del usuario desde las cookies, de modo que la RLS filtra por auth.uid().
+//
+// Si faltan las variables de entorno devolvemos null y la app entra en "modo
+// demo" (UI totalmente explorable, sin persistencia ni auth).
 // -----------------------------------------------------------------------------
-
-let cached: SupabaseClient | null | undefined;
 
 export function isSupabaseConfigured(): boolean {
   return (
@@ -17,9 +19,7 @@ export function isSupabaseConfigured(): boolean {
   );
 }
 
-export function getSupabase(): SupabaseClient | null {
-  if (cached !== undefined) return cached;
-
+export async function getSupabase(): Promise<SupabaseClient | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -30,12 +30,27 @@ export function getSupabase(): SupabaseClient | null {
           "Completá .env.local para persistir datos.",
       );
     }
-    cached = null;
     return null;
   }
 
-  cached = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
+  const cookieStore = await cookies();
+
+  return createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          for (const { name, value, options } of cookiesToSet) {
+            cookieStore.set(name, value, options);
+          }
+        } catch {
+          // Invocado desde un Server Component, que no puede escribir cookies.
+          // El refresh de la sesión lo hace el proxy (proxy.ts), así que acá
+          // podemos ignorarlo de forma segura.
+        }
+      },
+    },
   });
-  return cached;
 }

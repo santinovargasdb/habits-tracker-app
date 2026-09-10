@@ -20,7 +20,7 @@ export async function manageInvestment(
   fund: FundType,
   amount: number,
 ): Promise<ManageInvestmentResult> {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
   if (!supabase) {
     return { ok: false, persisted: false, newBalance: null, newInvested: null };
   }
@@ -62,7 +62,7 @@ export interface InterestResult {
 }
 
 export async function calculateDailyInterest(): Promise<InterestResult> {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
   if (!supabase) return { persisted: false, funds: null };
 
   const { data, error } = await supabase.rpc("calculate_daily_interest");
@@ -87,7 +87,7 @@ export interface SpinResult {
 }
 
 export async function spinRoulette(bet: number): Promise<SpinResult> {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
   if (!supabase) {
     return {
       ok: false,

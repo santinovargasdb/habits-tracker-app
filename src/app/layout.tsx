@@ -43,15 +43,34 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-async function getInitialBalance(): Promise<number> {
-  const supabase = getSupabase();
-  if (!supabase) return 0;
+interface SessionChrome {
+  showChrome: boolean;
+  balance: number;
+  email: string | null;
+}
+
+// Modo demo (sin backend): mostramos el chrome del juego igual.
+// Con backend: sólo mostramos header/wallet si hay usuario autenticado; en
+// /login (sin sesión) el layout renderiza la página sola.
+async function getSessionChrome(): Promise<SessionChrome> {
+  const supabase = await getSupabase();
+  if (!supabase) return { showChrome: true, balance: 0, email: null };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { showChrome: false, balance: 0, email: null };
+
   const { data } = await supabase
     .from("wallet")
     .select("balance")
     .limit(1)
     .maybeSingle();
-  return data?.balance ?? 0;
+  return {
+    showChrome: true,
+    balance: data?.balance ?? 0,
+    email: user.email ?? null,
+  };
 }
 
 export default async function RootLayout({
@@ -59,7 +78,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const initialBalance = await getInitialBalance();
+  const { showChrome, balance, email } = await getSessionChrome();
 
   return (
     <html
@@ -67,10 +86,14 @@ export default async function RootLayout({
       className={`${display.variable} ${body.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        <WalletProvider initialBalance={initialBalance}>
-          <Header />
+        {showChrome ? (
+          <WalletProvider initialBalance={balance}>
+            <Header userEmail={email} />
+            <main className="relative z-10">{children}</main>
+          </WalletProvider>
+        ) : (
           <main className="relative z-10">{children}</main>
-        </WalletProvider>
+        )}
         <ServiceWorkerRegistrar />
       </body>
     </html>

@@ -19,7 +19,7 @@ export interface UpgradeResult {
  * En modo demo devuelve persisted=false y el frontend simula la mejora.
  */
 export async function upgradeCard(cardId: string): Promise<UpgradeResult> {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
   if (!supabase) {
     return {
       ok: false,

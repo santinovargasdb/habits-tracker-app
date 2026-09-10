@@ -23,7 +23,7 @@ export async function setDeckSlot(
     return { persisted: false, deck: null, error: "Slot inválido" };
   }
 
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
   if (!supabase) {
     // Modo demo: el frontend conserva su mazo optimista.
     return { persisted: false, deck: null };
