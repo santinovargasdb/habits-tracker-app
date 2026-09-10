@@ -10,10 +10,12 @@ import {
   STATUS_REWARD,
   TIME_BLOCK_META,
   TIME_BLOCK_ORDER,
+  WEEKLY_BLOCK_META,
   computeAward,
+  frequencyRewardFactor,
 } from "@/lib/constants";
 import type { AwardMap, Habit, HabitStatus, LogMap } from "@/lib/types";
-import { cn, formatLongDate } from "@/lib/utils";
+import { cn, formatLongDate, weekStartISO } from "@/lib/utils";
 
 interface TrackerViewProps {
   date: string;
@@ -36,25 +38,52 @@ export default function TrackerView({
   const [awards, setAwards] = useState<AwardMap>(initialAwards);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Resumen del día (usa el pago real acreditado, con multiplicador).
+  // Lunes de la semana en curso: los hábitos semanales anclan su log a esta
+  // fecha, de modo que el estado se mantiene toda la semana y se reinicia solo
+  // al arrancar la siguiente.
+  const weekStart = useMemo(() => weekStartISO(date), [date]);
+
+  // Separamos por cadencia: los diarios se agrupan por bloque horario; los
+  // semanales van todos al Bloque Semanal (placa dorada).
+  const { dailyHabits, weeklyHabits } = useMemo(() => {
+    const dailyHabits: Habit[] = [];
+    const weeklyHabits: Habit[] = [];
+    for (const h of habits) {
+      (h.frequency === "WEEKLY" ? weeklyHabits : dailyHabits).push(h);
+    }
+    return { dailyHabits, weeklyHabits };
+  }, [habits]);
+
+  // Resumen del DÍA (solo hábitos diarios; usa el pago real acreditado).
   const { done, total, earnedToday } = useMemo(() => {
     let done = 0;
     let earnedToday = 0;
-    for (const h of habits) {
+    for (const h of dailyHabits) {
       const s = logs[h.id] ?? "NONE";
       if (s !== "NONE") done += 1;
       earnedToday += awards[h.id] ?? 0;
     }
-    return { done, total: habits.length, earnedToday };
-  }, [habits, logs, awards]);
+    return { done, total: dailyHabits.length, earnedToday };
+  }, [dailyHabits, logs, awards]);
+
+  // Resumen de la SEMANA (solo hábitos semanales).
+  const { weeklyDone, weeklyEarned } = useMemo(() => {
+    let weeklyDone = 0;
+    let weeklyEarned = 0;
+    for (const h of weeklyHabits) {
+      if ((logs[h.id] ?? "NONE") !== "NONE") weeklyDone += 1;
+      weeklyEarned += awards[h.id] ?? 0;
+    }
+    return { weeklyDone, weeklyEarned };
+  }, [weeklyHabits, logs, awards]);
 
   const grouped = useMemo(
     () =>
       TIME_BLOCK_ORDER.map((block) => ({
         block,
-        items: habits.filter((h) => h.time_block === block),
+        items: dailyHabits.filter((h) => h.time_block === block),
       })).filter((g) => g.items.length > 0),
-    [habits],
+    [dailyHabits],
   );
 
   function handleChange(habit: Habit, next: HabitStatus) {
@@ -62,9 +91,13 @@ export default function TrackerView({
     if (next === prevStatus) return;
 
     const mult = multiplierForBlock(habit.time_block);
+    const factor = frequencyRewardFactor(habit.frequency);
     const prevAward = awards[habit.id] ?? 0;
-    const newAward = computeAward(STATUS_REWARD[next], mult);
+    const newAward = computeAward(STATUS_REWARD[next] * factor, mult);
     const delta = newAward - prevAward;
+
+    // Los semanales anclan su log al lunes de la semana; los diarios, al día.
+    const logDate = habit.frequency === "WEEKLY" ? weekStart : date;
 
     // 1) Optimista.
     setLogs((m) => ({ ...m, [habit.id]: next }));
@@ -73,7 +106,7 @@ export default function TrackerView({
 
     // 2) Persistencia + reconciliación.
     void (async () => {
-      const res = await setHabitStatus(habit.id, date, next);
+      const res = await setHabitStatus(habit.id, logDate, next);
 
       if (configured && !res.persisted) {
         setLogs((m) => ({ ...m, [habit.id]: prevStatus }));
@@ -156,6 +189,53 @@ export default function TrackerView({
           </div>
         )}
       </section>
+
+      {/* Bloque Semanal — placa dorada, distintivo ×5 */}
+      {weeklyHabits.length > 0 && (
+        <section
+          aria-label={WEEKLY_BLOCK_META.label}
+          className="animate-rise mb-7 rounded-2xl border border-gold/40 bg-gradient-to-b from-gold/[0.10] to-gold/[0.02] p-4 shadow-[0_0_28px_-10px_rgba(246,196,69,0.6)]"
+        >
+          <div className="mb-3 flex items-center gap-2.5">
+            <span className="text-lg" aria-hidden>
+              {WEEKLY_BLOCK_META.icon}
+            </span>
+            <h2 className="font-display text-xs font-bold uppercase tracking-[0.2em] text-gold">
+              {WEEKLY_BLOCK_META.label}
+            </h2>
+            <span className="flex items-center gap-1 rounded-full border border-gold/40 bg-gold/15 px-2 py-0.5 font-mono text-[10px] font-bold text-gold">
+              {WEEKLY_BLOCK_META.badge}
+            </span>
+            <span className="h-px flex-1 bg-gradient-to-r from-gold/50 to-transparent" />
+          </div>
+
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-muted">
+              {weeklyDone}/{weeklyHabits.length} · reinicia el lunes
+            </p>
+            <p className="font-mono text-[11px] font-bold tabular-nums text-gold">
+              +{weeklyEarned.toLocaleString("es-AR")}
+              <span className="ml-0.5 text-[9px]">🪙 esta semana</span>
+            </p>
+          </div>
+
+          <div className="space-y-2.5">
+            {weeklyHabits.map((habit, i) => (
+              <HabitCard
+                key={habit.id}
+                name={habit.name}
+                status={logs[habit.id] ?? "NONE"}
+                reward={awards[habit.id] ?? 0}
+                multiplierPercent={multiplierForBlock(habit.time_block)}
+                accent={WEEKLY_BLOCK_META.accent}
+                index={i}
+                rewardFactor={frequencyRewardFactor(habit.frequency)}
+                onChange={(next) => handleChange(habit, next)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Bloques horarios */}
       <div className="space-y-7">

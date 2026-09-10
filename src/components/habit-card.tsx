@@ -21,6 +21,12 @@ interface HabitCardProps {
   accent: string;
   /** Índice global para escalonar la animación de entrada. */
   index: number;
+  /**
+   * Factor sobre la recompensa BASE por la cadencia del hábito (×5 para los
+   * semanales, 1 para los diarios). Debe coincidir con el usado por el llamador
+   * al persistir, para que el burst optimista y el balance no se desfasen.
+   */
+  rewardFactor?: number;
   onChange: (next: HabitStatus) => void;
 }
 
@@ -44,6 +50,7 @@ export default function HabitCard({
   multiplierPercent,
   accent,
   index,
+  rewardFactor = 1,
   onChange,
 }: HabitCardProps) {
   const [burst, setBurst] = useState<{ id: number; amount: number } | null>(
@@ -54,7 +61,11 @@ export default function HabitCard({
   function handleSelect(next: HabitStatus) {
     if (next === status) return;
     // El delta espeja exactamente el cálculo del wallet: nuevo_pago - pago_actual.
-    const newAward = computeAward(STATUS_REWARD[next], multiplierPercent);
+    // La recompensa base incluye el factor de cadencia (×5 en los semanales).
+    const newAward = computeAward(
+      STATUS_REWARD[next] * rewardFactor,
+      multiplierPercent,
+    );
     const delta = newAward - reward;
     if (delta !== 0) {
       burstId.current += 1;

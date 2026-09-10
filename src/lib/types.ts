@@ -4,6 +4,15 @@
 
 export type TimeBlock = "Madrugada" | "Viaje" | "Tarde" | "Noche";
 
+/**
+ * Cadencia de un hábito.
+ *   DAILY  — se registra y reinicia cada día (log por fecha del día).
+ *   WEEKLY — vive en el Bloque Semanal: el log se ancla al inicio de semana
+ *            (lunes), se mantiene toda la semana y se reinicia solo al arrancar
+ *            un nuevo ciclo. Otorga ×5 de recompensa (ver WEEKLY_REWARD_MULTIPLIER).
+ */
+export type HabitFrequency = "DAILY" | "WEEKLY";
+
 export type HabitStatus = "NONE" | "MET" | "SURPASSED";
 
 export type CardRarity = "Common" | "Rare" | "Epic" | "Legendary";
@@ -51,6 +60,8 @@ export interface Habit {
   name: string;
   time_block: TimeBlock;
   sort_order: number;
+  /** Cadencia del hábito. Por defecto "DAILY" (ver HabitFrequency). */
+  frequency: HabitFrequency;
 }
 
 export interface HabitLog {

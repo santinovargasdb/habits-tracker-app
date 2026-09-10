@@ -7,7 +7,7 @@ import {
   SEED_CARDS,
   SEED_HABITS,
 } from "@/lib/constants";
-import { todayISO } from "@/lib/utils";
+import { todayISO, weekStartISO } from "@/lib/utils";
 import type {
   AwardMap,
   Card,
@@ -35,19 +35,43 @@ export default async function Page() {
   const awards: AwardMap = {};
 
   if (supabase) {
-    // Hábitos
-    const { data: dbHabits } = await supabase
+    // Hábitos (incluye `frequency` para el Bloque Semanal).
+    const primaryHabits = await supabase
       .from("habits")
-      .select("id, name, time_block, sort_order")
+      .select("id, name, time_block, sort_order, frequency")
       .order("sort_order", { ascending: true });
-    if (dbHabits && dbHabits.length > 0) habits = dbHabits as Habit[];
+    // Compat: si la columna `frequency` no existe (migración 08 sin aplicar),
+    // la query falla; reintentamos sin ella y asumimos DAILY.
+    let dbHabits = primaryHabits.data as Array<Record<string, unknown>> | null;
+    if (!dbHabits) {
+      const retry = await supabase
+        .from("habits")
+        .select("id, name, time_block, sort_order")
+        .order("sort_order", { ascending: true });
+      dbHabits = retry.data as Array<Record<string, unknown>> | null;
+    }
+    if (dbHabits && dbHabits.length > 0) {
+      habits = dbHabits.map((h) => ({
+        ...h,
+        frequency: h.frequency ?? "DAILY",
+      })) as Habit[];
+    }
 
-    // Logs del día (estado + monedas acreditadas)
+    // Logs: los diarios se anclan a HOY; los semanales, al lunes de la semana.
+    // Un hábito diario puede tener logs viejos con date = ese lunes, así que
+    // filtramos cada fila por la fecha que le corresponde según su cadencia.
+    const weekStart = weekStartISO(date);
+    const weeklyIds = new Set(
+      habits.filter((h) => h.frequency === "WEEKLY").map((h) => h.id),
+    );
+    const logDates = weekStart === date ? [date] : [date, weekStart];
     const { data: dbLogs } = await supabase
       .from("logs")
-      .select("habit_id, status, coins_awarded")
-      .eq("date", date);
+      .select("habit_id, status, coins_awarded, date")
+      .in("date", logDates);
     for (const row of dbLogs ?? []) {
+      const expected = weeklyIds.has(row.habit_id) ? weekStart : date;
+      if (row.date !== expected) continue;
       logs[row.habit_id] = row.status;
       awards[row.habit_id] = row.coins_awarded ?? 0;
     }

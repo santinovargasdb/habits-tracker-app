@@ -5,6 +5,7 @@ import type {
   Deck,
   FundType,
   Habit,
+  HabitFrequency,
   HabitStatus,
   Investment,
   OwnedCard,
@@ -22,6 +23,30 @@ export const STATUS_REWARD: Record<HabitStatus, number> = {
   MET: 50,
   SURPASSED: 150,
 };
+
+// -----------------------------------------------------------------------------
+// Bloque Semanal — los hábitos WEEKLY otorgan ×5 de recompensa.
+//   El factor se aplica sobre la recompensa BASE (antes del multiplicador de
+//   cartas), espejando el RPC set_habit_status (ver supabase/08_weekly_block.sql):
+//     round(status_value * factor_semanal * (100 + mult_mazo) / 100)
+// -----------------------------------------------------------------------------
+export const WEEKLY_REWARD_MULTIPLIER = 5;
+
+/** Factor de recompensa base según la cadencia (×5 para semanales). */
+export function frequencyRewardFactor(frequency: HabitFrequency): number {
+  return frequency === "WEEKLY" ? WEEKLY_REWARD_MULTIPLIER : 1;
+}
+
+/**
+ * Recompensa base de un estado según la cadencia, ANTES del multiplicador del
+ * mazo. Combinar con `computeAward(base, multiplierPercent)` para el pago final.
+ */
+export function baseRewardFor(
+  status: HabitStatus,
+  frequency: HabitFrequency,
+): number {
+  return STATUS_REWARD[status] * frequencyRewardFactor(frequency);
+}
 
 /** Orden canónico de los bloques horarios en la UI. */
 export const TIME_BLOCK_ORDER: TimeBlock[] = [
@@ -71,6 +96,29 @@ export const TIME_BLOCK_META: Record<TimeBlock, TimeBlockMeta> = {
   },
 };
 
+// -----------------------------------------------------------------------------
+// Bloque Semanal — identidad visual (placa dorada + badge de recompensa).
+// Es un bloque especial que agrupa TODOS los hábitos WEEKLY, independientemente
+// de su time_block, y se distingue del resto con acento dorado.
+// -----------------------------------------------------------------------------
+export interface WeeklyBlockMeta {
+  label: string;
+  tagline: string;
+  icon: string;
+  /** Acento dorado del bloque (CSS). */
+  accent: string;
+  /** Texto del badge distintivo (p. ej. "×5 Recompensa"). */
+  badge: string;
+}
+
+export const WEEKLY_BLOCK_META: WeeklyBlockMeta = {
+  label: "Bloque Semanal",
+  tagline: "Metas de largo aliento",
+  icon: "⭐",
+  accent: "#f6c445",
+  badge: `×${WEEKLY_REWARD_MULTIPLIER} Recompensa`,
+};
+
 export interface StatusMeta {
   label: string;
   emoji: string;
@@ -92,14 +140,17 @@ export const STATUS_SEQUENCE: HabitStatus[] = ["NONE", "MET", "SURPASSED"];
 // así la app es totalmente explorable aunque Supabase no esté configurado.
 // -----------------------------------------------------------------------------
 export const SEED_HABITS: Habit[] = [
-  { id: "11111111-1111-1111-1111-111111111111", name: "Despertar 5:30 AM", time_block: "Madrugada", sort_order: 1 },
-  { id: "22222222-2222-2222-2222-222222222222", name: "Trabajo (Mañana)", time_block: "Madrugada", sort_order: 2 },
-  { id: "33333333-3333-3333-3333-333333333333", name: "Lectura en el tren", time_block: "Viaje", sort_order: 3 },
-  { id: "44444444-4444-4444-4444-444444444444", name: "Repaso de Kanjis", time_block: "Viaje", sort_order: 4 },
-  { id: "55555555-5555-5555-5555-555555555555", name: "Entrenar MMA (15:30 - 17:00)", time_block: "Tarde", sort_order: 5 },
-  { id: "66666666-6666-6666-6666-666666666666", name: "Preparación Álgebra/Entropía", time_block: "Tarde", sort_order: 6 },
-  { id: "77777777-7777-7777-7777-777777777777", name: "Colegio secundario", time_block: "Noche", sort_order: 7 },
-  { id: "88888888-8888-8888-8888-888888888888", name: "Cierre a las 22:00", time_block: "Noche", sort_order: 8 },
+  { id: "11111111-1111-1111-1111-111111111111", name: "Despertar 5:30 AM", time_block: "Madrugada", sort_order: 1, frequency: "DAILY" },
+  { id: "22222222-2222-2222-2222-222222222222", name: "Trabajo (Mañana)", time_block: "Madrugada", sort_order: 2, frequency: "DAILY" },
+  { id: "33333333-3333-3333-3333-333333333333", name: "Lectura en el tren", time_block: "Viaje", sort_order: 3, frequency: "DAILY" },
+  { id: "44444444-4444-4444-4444-444444444444", name: "Repaso de Kanjis", time_block: "Viaje", sort_order: 4, frequency: "DAILY" },
+  { id: "55555555-5555-5555-5555-555555555555", name: "Entrenar MMA (15:30 - 17:00)", time_block: "Tarde", sort_order: 5, frequency: "DAILY" },
+  { id: "66666666-6666-6666-6666-666666666666", name: "Preparación Álgebra/Entropía", time_block: "Tarde", sort_order: 6, frequency: "DAILY" },
+  { id: "77777777-7777-7777-7777-777777777777", name: "Colegio secundario", time_block: "Noche", sort_order: 7, frequency: "DAILY" },
+  { id: "88888888-8888-8888-8888-888888888888", name: "Cierre a las 22:00", time_block: "Noche", sort_order: 8, frequency: "DAILY" },
+  // Bloque Semanal (WEEKLY): se registran una vez por semana y otorgan ×5.
+  { id: "99999999-9999-9999-9999-999999999999", name: "Planificar la semana", time_block: "Noche", sort_order: 9, frequency: "WEEKLY" },
+  { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", name: "Limpieza profunda / orden", time_block: "Tarde", sort_order: 10, frequency: "WEEKLY" },
 ];
 
 // =============================================================================
