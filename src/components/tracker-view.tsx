@@ -1,17 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import HabitCard from "@/components/habit-card";
 import { setHabitStatus } from "@/actions/habits";
 import { useWallet } from "@/lib/wallet-context";
 import { useGame } from "@/lib/game-context";
 import {
-  STATUS_REWARD,
   TIME_BLOCK_META,
   TIME_BLOCK_ORDER,
   WEEKLY_BLOCK_META,
-  computeAward,
-  frequencyRewardFactor,
 } from "@/lib/constants";
 import type { AwardMap, Habit, HabitStatus, LogMap } from "@/lib/types";
 import { cn, formatLongDate, weekStartISO } from "@/lib/utils";
@@ -29,11 +26,16 @@ export default function TrackerView({
   initialLogs,
   initialAwards,
 }: TrackerViewProps) {
-  const { setBalance, addToBalance } = useWallet();
+  const { setBalance } = useWallet();
   const { multiplierForBlock } = useGame();
   const [logs, setLogs] = useState<LogMap>(initialLogs);
   const [awards, setAwards] = useState<AwardMap>(initialAwards);
   const [toast, setToast] = useState<string | null>(null);
+  // Burst de monedas por hábito, disparado con el delta REAL que devuelve el RPC.
+  const [bursts, setBursts] = useState<Record<string, { id: number; amount: number }>>(
+    {},
+  );
+  const burstId = useRef(0);
 
   // Lunes de la semana en curso: los hábitos semanales anclan su log a esta
   // fecha, de modo que el estado se mantiene toda la semana y se reinicia solo
@@ -46,7 +48,7 @@ export default function TrackerView({
     const dailyHabits: Habit[] = [];
     const weeklyHabits: Habit[] = [];
     for (const h of habits) {
-      (h.frequency === "WEEKLY" ? weeklyHabits : dailyHabits).push(h);
+      (h.frequency === "weekly" ? weeklyHabits : dailyHabits).push(h);
     }
     return { dailyHabits, weeklyHabits };
   }, [habits]);
@@ -87,37 +89,35 @@ export default function TrackerView({
     const prevStatus = logs[habit.id] ?? "NONE";
     if (next === prevStatus) return;
 
-    const mult = multiplierForBlock(habit.time_block);
-    const factor = frequencyRewardFactor(habit.frequency);
     const prevAward = awards[habit.id] ?? 0;
-    const newAward = computeAward(STATUS_REWARD[next] * factor, mult);
-    const delta = newAward - prevAward;
+    // Los semanales anclan su log al LUNES de la semana; los diarios, a hoy.
+    const logDate = habit.frequency === "weekly" ? weekStart : date;
 
-    // Los semanales anclan su log al lunes de la semana; los diarios, al día.
-    const logDate = habit.frequency === "WEEKLY" ? weekStart : date;
-
-    // 1) Optimista.
+    // 1) Optimista: sólo el estado (feedback inmediato del check). El balance y
+    //    las monedas NO se calculan en el cliente: los define el RPC.
     setLogs((m) => ({ ...m, [habit.id]: next }));
-    setAwards((m) => ({ ...m, [habit.id]: newAward }));
-    addToBalance(delta);
 
-    // 2) Persistencia + reconciliación.
+    // 2) Persistencia: confiamos ciegamente en el balance/monedas del RPC.
     void (async () => {
       const res = await setHabitStatus(habit.id, logDate, next);
 
       if (!res.persisted) {
-        setLogs((m) => ({ ...m, [habit.id]: prevStatus }));
-        setAwards((m) => ({ ...m, [habit.id]: prevAward }));
-        addToBalance(-delta);
+        setLogs((m) => ({ ...m, [habit.id]: prevStatus })); // rollback del estado
         setToast("No se pudo guardar. Revisá tu conexión / Supabase.");
         window.setTimeout(() => setToast(null), 3200);
         return;
       }
 
-      if (res.persisted) {
-        if (res.balance !== null) setBalance(res.balance);
-        if (res.coinsAwarded !== null) {
-          setAwards((m) => ({ ...m, [habit.id]: res.coinsAwarded as number }));
+      if (res.balance !== null) setBalance(res.balance);
+      if (res.coinsAwarded !== null) {
+        const awarded = res.coinsAwarded;
+        setAwards((m) => ({ ...m, [habit.id]: awarded }));
+        // Burst con el delta REAL acreditado por el servidor.
+        const delta = awarded - prevAward;
+        if (delta !== 0) {
+          burstId.current += 1;
+          const id = burstId.current;
+          setBursts((b) => ({ ...b, [habit.id]: { id, amount: delta } }));
         }
       }
     })();
@@ -183,9 +183,6 @@ export default function TrackerView({
             <h2 className="font-display text-xs font-bold uppercase tracking-[0.2em] text-gold">
               {WEEKLY_BLOCK_META.label}
             </h2>
-            <span className="flex items-center gap-1 rounded-full border border-gold/40 bg-gold/15 px-2 py-0.5 font-mono text-[10px] font-bold text-gold">
-              {WEEKLY_BLOCK_META.badge}
-            </span>
             <span className="h-px flex-1 bg-gradient-to-r from-gold/50 to-transparent" />
           </div>
 
@@ -209,7 +206,9 @@ export default function TrackerView({
                 multiplierPercent={multiplierForBlock(habit.time_block)}
                 accent={WEEKLY_BLOCK_META.accent}
                 index={i}
-                rewardFactor={frequencyRewardFactor(habit.frequency)}
+                weekly
+                multiplier={habit.multiplier}
+                burst={bursts[habit.id] ?? null}
                 onChange={(next) => handleChange(habit, next)}
               />
             ))}
@@ -260,6 +259,7 @@ export default function TrackerView({
                     multiplierPercent={mult}
                     accent={meta.accent}
                     index={gi * 2 + i}
+                    burst={bursts[habit.id] ?? null}
                     onChange={(next) => handleChange(habit, next)}
                   />
                 ))}

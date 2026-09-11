@@ -1,32 +1,31 @@
 "use client";
 
-import { useRef, useState } from "react";
-import {
-  STATUS_META,
-  STATUS_REWARD,
-  STATUS_SEQUENCE,
-  computeAward,
-} from "@/lib/constants";
+import { useState } from "react";
+import { STATUS_META, STATUS_SEQUENCE } from "@/lib/constants";
 import type { HabitStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface HabitCardProps {
   name: string;
   status: HabitStatus;
-  /** Monedas actualmente acreditadas por este hábito (con multiplicador). */
+  /** Monedas acreditadas por este hábito (valor autoritativo del servidor). */
   reward: number;
-  /** Multiplicador del bloque (suma de % de cartas equipadas). */
+  /** Multiplicador del mazo para el bloque (suma de % de cartas equipadas). */
   multiplierPercent: number;
   /** Color de acento del bloque horario. */
   accent: string;
   /** Índice global para escalonar la animación de entrada. */
   index: number;
+  /** Hábito semanal: muestra el badge distintivo. */
+  weekly?: boolean;
+  /** Multiplicador de recompensa de la DB (para el badge "Semanal 🔥 x5"). */
+  multiplier?: number;
   /**
-   * Factor sobre la recompensa BASE por la cadencia del hábito (×5 para los
-   * semanales, 1 para los diarios). Debe coincidir con el usado por el llamador
-   * al persistir, para que el burst optimista y el balance no se desfasen.
+   * Burst de monedas a animar. Lo dispara el padre con el delta REAL devuelto
+   * por el RPC (el cliente ya no calcula recompensas). Cada burst trae un id
+   * único para re-lanzar la animación.
    */
-  rewardFactor?: number;
+  burst?: { id: number; amount: number } | null;
   onChange: (next: HabitStatus) => void;
 }
 
@@ -50,29 +49,21 @@ export default function HabitCard({
   multiplierPercent,
   accent,
   index,
-  rewardFactor = 1,
+  weekly = false,
+  multiplier = 1,
+  burst = null,
   onChange,
 }: HabitCardProps) {
-  const [burst, setBurst] = useState<{ id: number; amount: number } | null>(
-    null,
-  );
-  const burstId = useRef(0);
+  // El burst lo controla el padre (con el delta real del RPC). Guardamos el
+  // último id "consumido" para ocultarlo al terminar la animación sin efectos.
+  const [dismissedBurst, setDismissedBurst] = useState<number | null>(null);
+  const activeBurst =
+    burst && burst.amount !== 0 && dismissedBurst !== burst.id ? burst : null;
 
   function handleSelect(next: HabitStatus) {
     if (next === status) return;
-    // El delta espeja exactamente el cálculo del wallet: nuevo_pago - pago_actual.
-    // La recompensa base incluye el factor de cadencia (×5 en los semanales).
-    const newAward = computeAward(
-      STATUS_REWARD[next] * rewardFactor,
-      multiplierPercent,
-    );
-    const delta = newAward - reward;
-    if (delta !== 0) {
-      burstId.current += 1;
-      setBurst({ id: burstId.current, amount: delta });
-      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-        navigator.vibrate?.(12);
-      }
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate?.(12);
     }
     onChange(next);
   }
@@ -87,31 +78,36 @@ export default function HabitCard({
       )}
       style={{ animationDelay: `${Math.min(index, 12) * 45}ms` }}
     >
-      {burst && (
+      {activeBurst && (
         <span
-          key={burst.id}
-          onAnimationEnd={() => setBurst(null)}
+          key={activeBurst.id}
+          onAnimationEnd={() => setDismissedBurst(activeBurst.id)}
           className={cn(
             "animate-coin-float pointer-events-none absolute right-4 top-2.5 z-10 flex items-center gap-0.5 font-mono text-sm font-bold",
-            burst.amount > 0 ? "text-gold" : "text-danger",
+            activeBurst.amount > 0 ? "text-gold" : "text-danger",
           )}
         >
-          {burst.amount > 0 ? "+" : "−"}
-          {Math.abs(burst.amount)}
+          {activeBurst.amount > 0 ? "+" : "−"}
+          {Math.abs(activeBurst.amount)}
           <span className="text-[11px]">🪙</span>
         </span>
       )}
 
       <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <span
-            className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full"
+            className="h-2.5 w-2.5 shrink-0 rounded-full"
             style={{ backgroundColor: accent, boxShadow: `0 0 10px ${accent}80` }}
             aria-hidden
           />
           <h3 className="font-display text-[15px] font-semibold leading-tight text-fg">
             {name}
           </h3>
+          {weekly && (
+            <span className="flex shrink-0 items-center gap-1 rounded-full border border-gold/40 bg-gradient-to-r from-gold/20 to-fire/15 px-2 py-0.5 font-mono text-[10px] font-bold text-gold">
+              Semanal 🔥 x{multiplier}
+            </span>
+          )}
         </div>
         <span
           className={cn(

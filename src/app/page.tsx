@@ -28,13 +28,12 @@ export default async function Page() {
   const awards: AwardMap = {};
 
   if (supabase) {
-    // Hábitos (incluye `frequency` para el Bloque Semanal).
+    // Hábitos (incluye `frequency` y `multiplier` para el Bloque Semanal).
     const primaryHabits = await supabase
       .from("habits")
-      .select("id, name, time_block, sort_order, frequency")
+      .select("id, name, time_block, sort_order, frequency, multiplier")
       .order("sort_order", { ascending: true });
-    // Compat: si la columna `frequency` no existe (migración 08 sin aplicar),
-    // la query falla; reintentamos sin ella y asumimos DAILY.
+    // Compat: si faltan las columnas nuevas, reintentamos con lo básico.
     let dbHabits = primaryHabits.data as Array<Record<string, unknown>> | null;
     if (!dbHabits) {
       const retry = await supabase
@@ -46,7 +45,9 @@ export default async function Page() {
     if (dbHabits && dbHabits.length > 0) {
       habits = dbHabits.map((h) => ({
         ...h,
-        frequency: h.frequency ?? "DAILY",
+        // Normalizamos la cadencia a minúsculas (la DB puede tener 'weekly' o 'WEEKLY').
+        frequency: String(h.frequency ?? "daily").toLowerCase(),
+        multiplier: typeof h.multiplier === "number" ? h.multiplier : 1,
       })) as Habit[];
     }
 
@@ -55,7 +56,7 @@ export default async function Page() {
     // filtramos cada fila por la fecha que le corresponde según su cadencia.
     const weekStart = weekStartISO(date);
     const weeklyIds = new Set(
-      habits.filter((h) => h.frequency === "WEEKLY").map((h) => h.id),
+      habits.filter((h) => h.frequency === "weekly").map((h) => h.id),
     );
     const logDates = weekStart === date ? [date] : [date, weekStart];
     const { data: dbLogs } = await supabase

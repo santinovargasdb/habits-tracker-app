@@ -4,46 +4,17 @@ import type {
   ChestType,
   Deck,
   FundType,
-  HabitFrequency,
   HabitStatus,
   RouletteColor,
   TimeBlock,
 } from "@/lib/types";
 
 // -----------------------------------------------------------------------------
-// Economía base
-//   NONE = 0 · MET = 50 · SURPASSED = 150
-//   El delta al cambiar de estado es REWARD[nuevo] - REWARD[anterior].
+// Economía: la recompensa (base + ×multiplier de los hábitos semanales + mult.
+// del mazo) la calcula ÍNTEGRAMENTE el servidor en el RPC set_habit_status, que
+// devuelve el balance nuevo y las monedas acreditadas. El cliente NO recalcula
+// nada: confía en esos valores (ver src/actions/habits.ts y tracker-view.tsx).
 // -----------------------------------------------------------------------------
-export const STATUS_REWARD: Record<HabitStatus, number> = {
-  NONE: 0,
-  MET: 50,
-  SURPASSED: 150,
-};
-
-// -----------------------------------------------------------------------------
-// Bloque Semanal — los hábitos WEEKLY otorgan ×5 de recompensa.
-//   El factor se aplica sobre la recompensa BASE (antes del multiplicador de
-//   cartas), espejando el RPC set_habit_status (ver supabase/08_weekly_block.sql):
-//     round(status_value * factor_semanal * (100 + mult_mazo) / 100)
-// -----------------------------------------------------------------------------
-export const WEEKLY_REWARD_MULTIPLIER = 5;
-
-/** Factor de recompensa base según la cadencia (×5 para semanales). */
-export function frequencyRewardFactor(frequency: HabitFrequency): number {
-  return frequency === "WEEKLY" ? WEEKLY_REWARD_MULTIPLIER : 1;
-}
-
-/**
- * Recompensa base de un estado según la cadencia, ANTES del multiplicador del
- * mazo. Combinar con `computeAward(base, multiplierPercent)` para el pago final.
- */
-export function baseRewardFor(
-  status: HabitStatus,
-  frequency: HabitFrequency,
-): number {
-  return STATUS_REWARD[status] * frequencyRewardFactor(frequency);
-}
 
 /** Orden canónico de los bloques horarios en la UI. */
 export const TIME_BLOCK_ORDER: TimeBlock[] = [
@@ -104,8 +75,6 @@ export interface WeeklyBlockMeta {
   icon: string;
   /** Acento dorado del bloque (CSS). */
   accent: string;
-  /** Texto del badge distintivo (p. ej. "×5 Recompensa"). */
-  badge: string;
 }
 
 export const WEEKLY_BLOCK_META: WeeklyBlockMeta = {
@@ -113,7 +82,6 @@ export const WEEKLY_BLOCK_META: WeeklyBlockMeta = {
   tagline: "Metas de largo aliento",
   icon: "⭐",
   accent: "#f6c445",
-  badge: `×${WEEKLY_REWARD_MULTIPLIER} Recompensa`,
 };
 
 export interface StatusMeta {
@@ -135,11 +103,6 @@ export const STATUS_SEQUENCE: HabitStatus[] = ["NONE", "MET", "SURPASSED"];
 // =============================================================================
 // Paso 2 — Cartas y mazo
 // =============================================================================
-
-/** Pago con multiplicador del mazo (espeja round() del RPC en Postgres). */
-export function computeAward(base: number, multiplierPercent: number): number {
-  return Math.round((base * (100 + multiplierPercent)) / 100);
-}
 
 export const DECK_SIZE = 8;
 export const EMPTY_DECK: Deck = Array(DECK_SIZE).fill(null);
