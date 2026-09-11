@@ -44,22 +44,21 @@ export const viewport: Viewport = {
 };
 
 interface SessionChrome {
-  showChrome: boolean;
+  authed: boolean;
   balance: number;
   email: string | null;
 }
 
-// Sólo mostramos header/wallet si hay usuario autenticado; en /login (sin
-// sesión) el layout renderiza la página sola. Sin backend configurado (p. ej.
-// un build local sin env) no hay sesión: renderizamos sin chrome.
+// Devuelve la sesión para decidir el chrome (header/logout). OJO: esto NO debe
+// gatear al WalletProvider — ver RootLayout.
 async function getSessionChrome(): Promise<SessionChrome> {
   const supabase = await getSupabase();
-  if (!supabase) return { showChrome: false, balance: 0, email: null };
+  if (!supabase) return { authed: false, balance: 0, email: null };
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { showChrome: false, balance: 0, email: null };
+  if (!user) return { authed: false, balance: 0, email: null };
 
   const { data } = await supabase
     .from("wallet")
@@ -67,7 +66,7 @@ async function getSessionChrome(): Promise<SessionChrome> {
     .limit(1)
     .maybeSingle();
   return {
-    showChrome: true,
+    authed: true,
     balance: data?.balance ?? 0,
     email: user.email ?? null,
   };
@@ -78,7 +77,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { showChrome, balance, email } = await getSessionChrome();
+  const { authed, balance, email } = await getSessionChrome();
 
   return (
     <html
@@ -86,14 +85,17 @@ export default async function RootLayout({
       className={`${display.variable} ${body.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        {showChrome ? (
-          <WalletProvider initialBalance={balance}>
-            <Header userEmail={email} />
-            <main className="relative z-10">{children}</main>
-          </WalletProvider>
-        ) : (
+        {/*
+          WalletProvider SIEMPRE envuelve a los children: la ruleta, la tienda y
+          el inventario (bajo `/`) consumen useWallet(), y el proxy y el layout
+          resuelven la sesión por separado. Gatearlo por `authed` provocaba
+          "useWallet debe usarse dentro de <WalletProvider>" cuando ambos no
+          coincidían. El Header/logout sí es condicional (sólo autenticados).
+        */}
+        <WalletProvider initialBalance={balance}>
+          {authed && <Header userEmail={email} />}
           <main className="relative z-10">{children}</main>
-        )}
+        </WalletProvider>
         <ServiceWorkerRegistrar />
       </body>
     </html>
