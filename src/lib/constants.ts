@@ -216,6 +216,17 @@ export const RARITY_SEQUENCE: CardRarity[] = [
 
 export type ChestOdds = Record<CardRarity, number>;
 
+// -----------------------------------------------------------------------------
+// Pesos del gacha (RNG server-side en src/actions/gacha.ts) — única fuente de
+// verdad, también usada por la UI del Mercado para mostrar las probabilidades.
+// -----------------------------------------------------------------------------
+export const GACHA_WEIGHTS: Record<CardRarity, number> = {
+  Common: 0.6,
+  Rare: 0.25,
+  Epic: 0.1,
+  Legendary: 0.05,
+};
+
 export interface ChestConfig {
   type: ChestType;
   name: string;

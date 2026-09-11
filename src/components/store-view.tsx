@@ -8,11 +8,12 @@ import {
   ChestRevealModal,
   type RevealPhase,
 } from "@/components/chest-reveal-modal";
-import { purchaseChest } from "@/actions/store";
+import { openChest } from "@/actions/gacha";
 import { useWallet } from "@/lib/wallet-context";
 import { useGame } from "@/lib/game-context";
 import {
   CHESTS,
+  GACHA_WEIGHTS,
   RARITY_META,
   RARITY_SEQUENCE,
   type ChestConfig,
@@ -57,11 +58,8 @@ export default function StoreView() {
     setReveal({ ...CLOSED, phase: "opening", chest });
 
     try {
-      const [res] = await Promise.all([
-        purchaseChest(chest.type, chest.cost),
-        wait(1300),
-      ]);
-      if (!res.ok || !res.wonCardId) {
+      const [res] = await Promise.all([openChest(chest.cost), wait(1300)]);
+      if (!res.ok || !res.card) {
         setReveal(CLOSED);
         showToast(
           res.insufficient
@@ -70,20 +68,32 @@ export default function StoreView() {
         );
         return;
       }
-      const won = cardById(res.wonCardId);
-      if (!won) {
-        setReveal(CLOSED);
-        showToast("Carta desconocida.");
-        return;
-      }
+
+      // Actualizamos la billetera con el balance autoritativo del servidor.
       if (res.newBalance !== null) setBalance(res.newBalance);
-      applyCardWin(res.wonCardId, res.newQuantity ?? undefined);
+      applyCardWin(res.card.id, res.quantity ?? undefined);
+
+      // Carta a revelar: completamos con el catálogo del contexto y forzamos el
+      // icono devuelto por la acción (robusto ante icon_url/image_url).
+      const ctx = cardById(res.card.id);
+      const won: Card = ctx
+        ? { ...ctx, image_url: res.card.image_url ?? ctx.image_url }
+        : {
+            id: res.card.id,
+            name: res.card.name,
+            rarity: res.card.rarity,
+            target_block: null,
+            multiplier_percent: 0,
+            description: "",
+            image_url: res.card.image_url,
+          };
+
       setReveal({
         phase: "revealed",
         chest,
         card: won,
         isNew: res.isNew,
-        quantity: res.newQuantity,
+        quantity: res.quantity,
       });
     } finally {
       setBusy(false);
@@ -145,9 +155,9 @@ export default function StoreView() {
                 </div>
               </div>
 
-              {/* Probabilidades */}
+              {/* Probabilidades (odds reales del gacha; iguales para todo cofre) */}
               <div className="relative mt-3 flex flex-wrap gap-1.5">
-                {RARITY_SEQUENCE.filter((r) => chest.odds[r] > 0).map((r) => {
+                {RARITY_SEQUENCE.map((r) => {
                   const meta = RARITY_META[r];
                   return (
                     <Badge
@@ -159,7 +169,7 @@ export default function StoreView() {
                         backgroundColor: `${meta.color}12`,
                       }}
                     >
-                      {meta.label} {chest.odds[r]}%
+                      {meta.label} {Math.round(GACHA_WEIGHTS[r] * 100)}%
                     </Badge>
                   );
                 })}
