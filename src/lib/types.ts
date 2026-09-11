@@ -19,6 +19,9 @@ export type CardRarity = "Common" | "Rare" | "Epic" | "Legendary";
 
 export type ChestType = "BASICO" | "ORO" | "MAGICO";
 
+/** Tiers de cofre del gacha (costo y odds propios por tier). */
+export type ChestTier = "silver" | "gold" | "magical";
+
 export type FundType = "CONSERVATIVE" | "AGGRESSIVE";
 
 // -----------------------------------------------------------------------------
@@ -94,11 +97,15 @@ export interface Card {
   image_url: string | null;
 }
 
-/** Carta poseída (catálogo + cantidad + nivel). */
+/** Carta poseída (fila de user_inventory + su carta del catálogo). */
 export interface OwnedCard {
+  /** id de la fila en user_inventory (para equipar/desequipar). */
+  id: string;
   card: Card;
   quantity: number;
   level: number;
+  /** true si está en el mazo activo (máx 4). */
+  is_equipped: boolean;
 }
 
 /** Mazo activo: 8 slots; cada slot es un card_id o null (vacío). */

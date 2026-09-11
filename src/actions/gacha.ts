@@ -1,18 +1,18 @@
 "use server";
 
 import { getSupabaseOrThrow } from "@/lib/supabase/server";
-import { GACHA_WEIGHTS } from "@/lib/constants";
-import type { CardRarity } from "@/lib/types";
+import { chestTierConfig } from "@/lib/constants";
+import type { CardRarity, ChestTier } from "@/lib/types";
 
 // -----------------------------------------------------------------------------
-// Apertura de cofres (gacha) — RNG del lado del servidor.
+// Apertura de cofres (gacha) — RNG del lado del servidor, por tier.
 //
-// NOTA de arquitectura: el descuento del wallet se hace con un "lock optimista"
-// (solo actualiza si el balance no cambió desde la lectura) para evitar doble
-// gasto bajo concurrencia. El insert en user_inventory es en realidad
-// insert-o-incremento porque hay unique(user_id, card_id). Para máxima atomicidad
-// existe además el RPC transaccional purchase_chest; esta acción implementa la
-// lógica pedida a nivel de aplicación.
+// El cliente sólo manda el tier ('silver' | 'gold' | 'magical'); el costo y las
+// probabilidades salen de CHEST_TIERS en el servidor (no se confía en el cliente).
+//
+// NOTA de arquitectura: el descuento del wallet usa un "lock optimista" (sólo
+// actualiza si el balance no cambió desde la lectura) para evitar doble gasto.
+// El alta en user_inventory es insert-o-incremento por el unique(user_id, card_id).
 // -----------------------------------------------------------------------------
 
 export interface OpenChestCard {
@@ -26,12 +26,13 @@ export interface OpenChestCard {
 export interface OpenChestResult {
   ok: boolean;
   error?: string;
-  /** true si el fallo fue por saldo insuficiente. */
   insufficient?: boolean;
   /** Balance autoritativo tras el descuento (null si falló). */
   newBalance: number | null;
   /** Carta obtenida (null si falló). */
   card: OpenChestCard | null;
+  /** id de la fila de user_inventory de la carta obtenida (para el estado local). */
+  inventoryId: string | null;
   /** true si es la primera copia de esa carta en el inventario. */
   isNew: boolean;
   /** Cantidad total de esa carta tras la apertura (null si falló). */
@@ -40,26 +41,28 @@ export interface OpenChestResult {
 
 const RARITY_ORDER: CardRarity[] = ["Common", "Rare", "Epic", "Legendary"];
 
-/** RNG con los pesos exactos de GACHA_WEIGHTS (common .60 / rare .25 / epic .10 / legendary .05). */
-function rollRarity(): CardRarity {
+/** RNG con los pesos del tier (deben sumar 1). */
+function rollRarity(weights: Record<CardRarity, number>): CardRarity {
   const roll = Math.random();
   let acc = 0;
   for (const rarity of RARITY_ORDER) {
-    acc += GACHA_WEIGHTS[rarity];
+    acc += weights[rarity] ?? 0;
     if (roll < acc) return rarity;
   }
-  return "Legendary";
+  // Fallback: última rareza con peso > 0.
+  for (let i = RARITY_ORDER.length - 1; i >= 0; i--) {
+    if ((weights[RARITY_ORDER[i]] ?? 0) > 0) return RARITY_ORDER[i];
+  }
+  return "Common";
 }
 
-function fail(
-  error: string,
-  extra: Partial<OpenChestResult> = {},
-): OpenChestResult {
+function fail(error: string, extra: Partial<OpenChestResult> = {}): OpenChestResult {
   return {
     ok: false,
     error,
     newBalance: null,
     card: null,
+    inventoryId: null,
     isNew: false,
     quantity: null,
     ...extra,
@@ -67,12 +70,14 @@ function fail(
 }
 
 /**
- * Abre un cofre de costo `cost`: valida sesión y saldo, descuenta el costo,
- * sortea una rareza, elige una carta al azar de esa rareza y la suma al
- * inventario. Devuelve el balance nuevo y la carta obtenida.
+ * Abre un cofre del `chestType` indicado: valida sesión y saldo, descuenta el
+ * costo del tier, sortea la rareza según los pesos del tier, elige una carta al
+ * azar de esa rareza y la suma al inventario.
  */
-export async function openChest(cost: number): Promise<OpenChestResult> {
-  if (!Number.isFinite(cost) || cost < 0) return fail("Costo inválido.");
+export async function openChest(chestType: ChestTier): Promise<OpenChestResult> {
+  const tier = chestTierConfig(chestType);
+  if (!tier) return fail("Cofre inválido.");
+  const cost = tier.cost;
 
   const supabase = await getSupabaseOrThrow();
 
@@ -83,7 +88,7 @@ export async function openChest(cost: number): Promise<OpenChestResult> {
   if (!user) return fail("No autenticado.");
   const uid = user.id;
 
-  // 2) Leer el balance actual y validar que alcance.
+  // 2) Leer el balance y validar que alcance.
   const { data: wallet, error: wErr } = await supabase
     .from("wallet")
     .select("balance")
@@ -93,7 +98,7 @@ export async function openChest(cost: number): Promise<OpenChestResult> {
   const balance = wallet.balance ?? 0;
   if (balance < cost) return fail("Saldo insuficiente.", { insufficient: true });
 
-  // 3) Descontar el costo con lock optimista (evita doble gasto concurrente).
+  // 3) Descontar con lock optimista (evita doble gasto concurrente).
   const { data: updated, error: uErr } = await supabase
     .from("wallet")
     .update({ balance: balance - cost })
@@ -101,18 +106,15 @@ export async function openChest(cost: number): Promise<OpenChestResult> {
     .eq("balance", balance)
     .select("balance")
     .maybeSingle();
-  if (uErr || !updated) {
-    return fail("No se pudo descontar el costo. Reintentá.");
-  }
+  if (uErr || !updated) return fail("No se pudo descontar el costo. Reintentá.");
   const newBalance = updated.balance ?? balance - cost;
 
-  // 4) RNG de rareza.
-  const rarity = rollRarity();
+  // 4) RNG de rareza según el tier.
+  const rarity = rollRarity(tier.weights);
 
   // 5) Carta aleatoria de esa rareza (fallback al catálogo entero si estuviera vacía).
-  let pool = (
-    await supabase.from("cards").select("*").eq("rarity", rarity)
-  ).data as Array<Record<string, unknown>> | null;
+  let pool = (await supabase.from("cards").select("*").eq("rarity", rarity))
+    .data as Array<Record<string, unknown>> | null;
   if (!pool || pool.length === 0) {
     pool = (await supabase.from("cards").select("*")).data as Array<
       Record<string, unknown>
@@ -129,33 +131,38 @@ export async function openChest(cost: number): Promise<OpenChestResult> {
     image_url: (row.icon_url ?? row.image_url ?? null) as string | null,
   };
 
-  // 6) Sumar al inventario: insert nuevo o incremento de cantidad (unique user+card).
+  // 6) Sumar al inventario: insert nuevo o incremento (unique user+card).
   const { data: existing } = await supabase
     .from("user_inventory")
-    .select("quantity")
+    .select("id, quantity")
     .eq("user_id", uid)
     .eq("card_id", cardId)
     .maybeSingle();
 
+  let inventoryId: string;
   let quantity: number;
   let isNew: boolean;
   if (existing) {
+    inventoryId = String(existing.id);
     quantity = (existing.quantity ?? 1) + 1;
     isNew = false;
     const { error } = await supabase
       .from("user_inventory")
       .update({ quantity })
-      .eq("user_id", uid)
-      .eq("card_id", cardId);
+      .eq("id", inventoryId)
+      .eq("user_id", uid);
     if (error) return fail("No se pudo guardar la carta.");
   } else {
     quantity = 1;
     isNew = true;
-    const { error } = await supabase
+    const { data: inserted, error } = await supabase
       .from("user_inventory")
-      .insert({ user_id: uid, card_id: cardId, quantity: 1, level: 1 });
-    if (error) return fail("No se pudo guardar la carta.");
+      .insert({ user_id: uid, card_id: cardId, quantity: 1, level: 1 })
+      .select("id")
+      .single();
+    if (error || !inserted) return fail("No se pudo guardar la carta.");
+    inventoryId = String(inserted.id);
   }
 
-  return { ok: true, newBalance, card, isNew, quantity };
+  return { ok: true, newBalance, card, inventoryId, isNew, quantity };
 }

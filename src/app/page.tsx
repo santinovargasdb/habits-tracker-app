@@ -70,39 +70,53 @@ export default async function Page() {
       awards[row.habit_id] = row.coins_awarded ?? 0;
     }
 
-    // Catálogo de cartas (incluye `image_url` para el icono oficial).
-    const primaryCards = await supabase
-      .from("cards")
-      .select(
-        "id, name, rarity, target_block, multiplier_percent, description, image_url",
-      );
-    // Compat: si la columna `image_url` no existe (migración 09 sin aplicar),
-    // reintentamos sin ella; la UI cae al arte emoji de fallback.
-    let dbCards = primaryCards.data as Array<Record<string, unknown>> | null;
-    if (!dbCards) {
-      const retry = await supabase
-        .from("cards")
-        .select("id, name, rarity, target_block, multiplier_percent, description");
-      dbCards = retry.data as Array<Record<string, unknown>> | null;
-    }
+    // Catálogo de cartas. Leemos * y normalizamos el multiplicador y el icono
+    // (según exista `multiplier`/`multiplier_percent` e `icon_url`/`image_url`).
+    const dbCards = (await supabase.from("cards").select("*")).data as Array<
+      Record<string, unknown>
+    > | null;
     if (dbCards && dbCards.length > 0) {
       cards = dbCards.map((c) => ({
-        ...c,
-        image_url: c.image_url ?? null,
+        id: String(c.id),
+        name: String(c.name ?? "Carta"),
+        rarity: c.rarity,
+        target_block: c.target_block ?? null,
+        multiplier_percent:
+          typeof c.multiplier === "number"
+            ? c.multiplier
+            : typeof c.multiplier_percent === "number"
+              ? c.multiplier_percent
+              : 0,
+        description: String(c.description ?? ""),
+        image_url: (c.icon_url ?? c.image_url ?? null) as string | null,
       })) as Card[];
     }
 
-    // Inventario (join en JS)
+    // Inventario (join en JS) — incluye id de fila e is_equipped (mazo activo).
     const cardMap = new Map(cards.map((c) => [c.id, c]));
-    const { data: dbInv } = await supabase
+    const primaryInv = await supabase
       .from("user_inventory")
-      .select("card_id, quantity, level");
+      .select("id, card_id, quantity, level, is_equipped");
+    // Compat: si `is_equipped` no existe aún, reintentamos sin ella (default false).
+    let dbInv = primaryInv.data as Array<Record<string, unknown>> | null;
+    if (!dbInv) {
+      const retry = await supabase
+        .from("user_inventory")
+        .select("id, card_id, quantity, level");
+      dbInv = retry.data as Array<Record<string, unknown>> | null;
+    }
     if (dbInv) {
       inventory = dbInv
         .map((row) => {
-          const card = cardMap.get(row.card_id);
+          const card = cardMap.get(String(row.card_id));
           return card
-            ? { card, quantity: row.quantity, level: row.level }
+            ? {
+                id: String(row.id),
+                card,
+                quantity: Number(row.quantity ?? 1),
+                level: Number(row.level ?? 1),
+                is_equipped: Boolean(row.is_equipped),
+              }
             : null;
         })
         .filter((x): x is OwnedCard => x !== null);

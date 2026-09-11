@@ -1,6 +1,7 @@
 import type {
   Card,
   CardRarity,
+  ChestTier,
   ChestType,
   Deck,
   FundType,
@@ -106,6 +107,9 @@ export const STATUS_SEQUENCE: HabitStatus[] = ["NONE", "MET", "SURPASSED"];
 
 export const DECK_SIZE = 8;
 export const EMPTY_DECK: Deck = Array(DECK_SIZE).fill(null);
+
+/** Tope duro de cartas equipadas (mazo activo por is_equipped). */
+export const MAX_EQUIPPED = 4;
 
 export interface RarityMeta {
   label: string;
@@ -217,15 +221,53 @@ export const RARITY_SEQUENCE: CardRarity[] = [
 export type ChestOdds = Record<CardRarity, number>;
 
 // -----------------------------------------------------------------------------
-// Pesos del gacha (RNG server-side en src/actions/gacha.ts) — única fuente de
-// verdad, también usada por la UI del Mercado para mostrar las probabilidades.
+// Tiers de cofre del gacha — costo + pesos por rareza. Única fuente de verdad:
+// el RNG server-side (src/actions/gacha.ts) y la UI del Mercado leen de acá.
+// El servidor usa el `cost` del tier (no confía en un costo del cliente).
 // -----------------------------------------------------------------------------
-export const GACHA_WEIGHTS: Record<CardRarity, number> = {
-  Common: 0.6,
-  Rare: 0.25,
-  Epic: 0.1,
-  Legendary: 0.05,
-};
+export interface ChestTierConfig {
+  tier: ChestTier;
+  name: string;
+  cost: number;
+  icon: string;
+  accent: string;
+  blurb: string;
+  weights: Record<CardRarity, number>;
+}
+
+export const CHEST_TIERS: ChestTierConfig[] = [
+  {
+    tier: "silver",
+    name: "Cofre de Plata",
+    cost: 50,
+    icon: "📦",
+    accent: "#c9d1d9",
+    blurb: "Barato y frecuente. Ideal para empezar la colección.",
+    weights: { Common: 0.75, Rare: 0.2, Epic: 0.05, Legendary: 0.0 },
+  },
+  {
+    tier: "gold",
+    name: "Cofre de Oro",
+    cost: 150,
+    icon: "🎁",
+    accent: "#f6c445",
+    blurb: "Mayor chance de raras y épicas.",
+    weights: { Common: 0.3, Rare: 0.5, Epic: 0.18, Legendary: 0.02 },
+  },
+  {
+    tier: "magical",
+    name: "Cofre Mágico",
+    cost: 400,
+    icon: "🔮",
+    accent: "#b061ff",
+    blurb: "Sólo cartas potentes. Chance real de Legendaria.",
+    weights: { Common: 0.0, Rare: 0.2, Epic: 0.5, Legendary: 0.3 },
+  },
+];
+
+export function chestTierConfig(tier: ChestTier): ChestTierConfig | undefined {
+  return CHEST_TIERS.find((t) => t.tier === tier);
+}
 
 export interface ChestConfig {
   type: ChestType;

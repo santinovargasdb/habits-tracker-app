@@ -8,8 +8,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { setDeckSlot } from "@/actions/deck";
-import { DECK_SIZE, EMPTY_DECK, effectiveMultiplier } from "@/lib/constants";
+import { setDeckSlot, toggleEquipCard } from "@/actions/deck";
+import {
+  DECK_SIZE,
+  EMPTY_DECK,
+  MAX_EQUIPPED,
+  effectiveMultiplier,
+} from "@/lib/constants";
 import type { Card, Deck, OwnedCard, TimeBlock } from "@/lib/types";
 
 interface GameContextValue {
@@ -26,8 +31,19 @@ interface GameContextValue {
   firstEmptySlot: () => number;
   equip: (cardId: string, slotIndex: number) => void;
   unequip: (slotIndex: number) => void;
+  // --- Mazo activo por is_equipped (máx MAX_EQUIPPED) ---
+  /** Cantidad de cartas equipadas actualmente. */
+  equippedCount: number;
+  /** Tope duro de cartas equipables. */
+  maxEquipped: number;
+  /** Equipa/desequipa una carta del inventario (persiste + reconcilia). */
+  toggleEquip: (inventoryId: string) => void;
   /** Suma una carta al inventario (o incrementa su cantidad). Para el gacha. */
-  applyCardWin: (cardId: string, absoluteQuantity?: number) => void;
+  applyCardWin: (
+    cardId: string,
+    inventoryId: string,
+    absoluteQuantity?: number,
+  ) => void;
   /** Aplica una mejora de nivel a una carta del inventario. */
   applyUpgrade: (cardId: string, level: number, quantity: number) => void;
   /** Nivel de una carta en el inventario (1 si no está). */
@@ -155,7 +171,7 @@ export function GameProvider({
   );
 
   const applyCardWin = useCallback(
-    (cardId: string, absoluteQuantity?: number) => {
+    (cardId: string, inventoryId: string, absoluteQuantity?: number) => {
       setInventory((prev) => {
         const idx = prev.findIndex((o) => o.card.id === cardId);
         if (idx !== -1) {
@@ -168,11 +184,64 @@ export function GameProvider({
         if (!card) return prev;
         return [
           ...prev,
-          { card, quantity: absoluteQuantity ?? 1, level: 1 },
+          {
+            id: inventoryId,
+            card,
+            quantity: absoluteQuantity ?? 1,
+            level: 1,
+            is_equipped: false,
+          },
         ];
       });
     },
     [cardMap],
+  );
+
+  // Cantidad equipada (mazo activo por is_equipped).
+  const equippedCount = inventory.filter((o) => o.is_equipped).length;
+
+  // Equipa/desequipa: optimista + persistencia; respeta el tope duro.
+  const toggleEquip = useCallback(
+    (inventoryId: string) => {
+      const item = inventory.find((o) => o.id === inventoryId);
+      if (!item) return;
+      const next = !item.is_equipped;
+      const count = inventory.filter((o) => o.is_equipped).length;
+      if (next && count >= MAX_EQUIPPED) {
+        setLastError(`No podés equipar más de ${MAX_EQUIPPED} cartas.`);
+        return;
+      }
+
+      // Optimista.
+      setInventory((prev) =>
+        prev.map((o) =>
+          o.id === inventoryId ? { ...o, is_equipped: next } : o,
+        ),
+      );
+
+      void (async () => {
+        const res = await toggleEquipCard(inventoryId);
+        if (!res.ok) {
+          // Rollback al estado previo.
+          setInventory((prev) =>
+            prev.map((o) =>
+              o.id === inventoryId
+                ? { ...o, is_equipped: item.is_equipped }
+                : o,
+            ),
+          );
+          setLastError(res.error ?? "No se pudo equipar la carta.");
+          return;
+        }
+        // Reconciliación con la verdad del servidor.
+        setInventory((prev) =>
+          prev.map((o) =>
+            o.id === inventoryId ? { ...o, is_equipped: res.isEquipped } : o,
+          ),
+        );
+      })();
+    },
+    [inventory],
   );
 
   const applyUpgrade = useCallback(
@@ -197,6 +266,9 @@ export function GameProvider({
     firstEmptySlot,
     equip,
     unequip,
+    equippedCount,
+    maxEquipped: MAX_EQUIPPED,
+    toggleEquip,
     applyCardWin,
     applyUpgrade,
     levelOf,

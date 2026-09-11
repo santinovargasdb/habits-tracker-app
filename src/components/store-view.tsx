@@ -12,18 +12,17 @@ import { openChest } from "@/actions/gacha";
 import { useWallet } from "@/lib/wallet-context";
 import { useGame } from "@/lib/game-context";
 import {
-  CHESTS,
-  GACHA_WEIGHTS,
+  CHEST_TIERS,
   RARITY_META,
   RARITY_SEQUENCE,
-  type ChestConfig,
+  type ChestTierConfig,
 } from "@/lib/constants";
 import type { Card } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface RevealState {
   phase: RevealPhase;
-  chest: ChestConfig | null;
+  chest: ChestTierConfig | null;
   card: Card | null;
   isNew: boolean;
   quantity: number | null;
@@ -52,13 +51,13 @@ export default function StoreView() {
     window.setTimeout(() => setToast(null), 3000);
   }
 
-  async function handleBuy(chest: ChestConfig) {
+  async function handleBuy(chest: ChestTierConfig) {
     if (busy || balance < chest.cost) return;
     setBusy(true);
     setReveal({ ...CLOSED, phase: "opening", chest });
 
     try {
-      const [res] = await Promise.all([openChest(chest.cost), wait(1300)]);
+      const [res] = await Promise.all([openChest(chest.tier), wait(1300)]);
       if (!res.ok || !res.card) {
         setReveal(CLOSED);
         showToast(
@@ -71,7 +70,7 @@ export default function StoreView() {
 
       // Actualizamos la billetera con el balance autoritativo del servidor.
       if (res.newBalance !== null) setBalance(res.newBalance);
-      applyCardWin(res.card.id, res.quantity ?? undefined);
+      applyCardWin(res.card.id, res.inventoryId ?? "", res.quantity ?? undefined);
 
       // Carta a revelar: completamos con el catálogo del contexto y forzamos el
       // icono devuelto por la acción (robusto ante icon_url/image_url).
@@ -115,12 +114,12 @@ export default function StoreView() {
       </section>
 
       <div className="space-y-4">
-        {CHESTS.map((chest, i) => {
+        {CHEST_TIERS.map((chest, i) => {
           const affordable = balance >= chest.cost;
           const shortfall = chest.cost - balance;
           return (
             <article
-              key={chest.type}
+              key={chest.tier}
               className="animate-rise relative overflow-hidden rounded-2xl border border-line bg-surface/80 p-4"
               style={{ animationDelay: `${i * 70}ms` }}
             >
@@ -155,9 +154,9 @@ export default function StoreView() {
                 </div>
               </div>
 
-              {/* Probabilidades (odds reales del gacha; iguales para todo cofre) */}
+              {/* Probabilidades reales del tier */}
               <div className="relative mt-3 flex flex-wrap gap-1.5">
-                {RARITY_SEQUENCE.map((r) => {
+                {RARITY_SEQUENCE.filter((r) => chest.weights[r] > 0).map((r) => {
                   const meta = RARITY_META[r];
                   return (
                     <Badge
@@ -169,7 +168,7 @@ export default function StoreView() {
                         backgroundColor: `${meta.color}12`,
                       }}
                     >
-                      {meta.label} {Math.round(GACHA_WEIGHTS[r] * 100)}%
+                      {meta.label} {Math.round(chest.weights[r] * 100)}%
                     </Badge>
                   );
                 })}
