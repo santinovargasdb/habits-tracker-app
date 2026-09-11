@@ -9,6 +9,32 @@ export interface AuthState {
   message?: string;
 }
 
+/**
+ * Auto-login single-user: si no hay sesión, inicia sesión con la cuenta
+ * dedicada de la app (credenciales en env, sólo servidor). Así no hay pantalla
+ * de login. No hace nada si ya hay sesión o si faltan las env vars.
+ */
+export async function ensureAppSession(): Promise<{ ok: boolean }> {
+  const supabase = await getSupabase();
+  if (!supabase) return { ok: false };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) return { ok: true }; // ya hay sesión
+
+  const email = process.env.APP_AUTH_EMAIL;
+  const password = process.env.APP_AUTH_PASSWORD;
+  if (!email || !password) return { ok: false };
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    console.error("[ensureAppSession] login error:", error.message);
+    return { ok: false };
+  }
+  return { ok: true };
+}
+
 // Traducción amable de los errores más comunes de Supabase Auth.
 function translate(msg: string): string {
   if (/invalid login credentials/i.test(msg)) return "Email o contraseña incorrectos.";

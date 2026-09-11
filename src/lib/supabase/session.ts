@@ -2,20 +2,13 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // -----------------------------------------------------------------------------
-// Helper usado por el Proxy (proxy.ts) en cada request:
-//   1. Refresca la sesión de Supabase (getUser) y re-emite las cookies.
-//   2. Redirige a /login a quien no esté autenticado (chequeo optimista de UX;
-//      la seguridad REAL la impone la RLS en la base + auth.uid() en los RPCs).
-//   3. Si ya hay sesión y estás en /login, te manda al inicio.
+// Helper usado por el Proxy (proxy.ts) en cada request: refresca la sesión de
+// Supabase (getUser) y re-emite las cookies para mantenerla viva.
 //
-// Sin env vars (build local sin configurar) el proxy es un no-op; en producción
-// las variables siempre están presentes.
+// App single-user con auto-login (ver SessionBootstrap + ensureAppSession): ya
+// NO hay gate de /login; si no hay sesión, el cliente la crea sola con la cuenta
+// dedicada. Sin env vars (build local) el proxy es un no-op.
 // -----------------------------------------------------------------------------
-
-function isPublicPath(path: string): boolean {
-  // /login y todo lo que cuelga de /auth (callback de confirmación de email).
-  return path === "/login" || path.startsWith("/auth");
-}
 
 export async function updateSession(
   request: NextRequest,
@@ -46,29 +39,8 @@ export async function updateSession(
   });
 
   // IMPORTANTE: no metas lógica entre createServerClient y getUser().
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const path = request.nextUrl.pathname;
-
-  // No autenticado en ruta privada → a /login.
-  if (!user && !isPublicPath(path)) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/login";
-    const redirect = NextResponse.redirect(redirectUrl);
-    for (const c of supabaseResponse.cookies.getAll()) redirect.cookies.set(c);
-    return redirect;
-  }
-
-  // Autenticado pero en /login → al inicio.
-  if (user && path === "/login") {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/";
-    const redirect = NextResponse.redirect(redirectUrl);
-    for (const c of supabaseResponse.cookies.getAll()) redirect.cookies.set(c);
-    return redirect;
-  }
+  // Refresca/renueva la sesión (y sus cookies) si existe. Sin gate de login.
+  await supabase.auth.getUser();
 
   return supabaseResponse;
 }

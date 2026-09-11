@@ -4,6 +4,7 @@ import "./globals.css";
 import Header from "@/components/header";
 import { ClientWalletProvider } from "@/components/client-wallet-provider";
 import { ServiceWorkerRegistrar } from "@/components/service-worker-registrar";
+import { SessionBootstrap } from "@/components/session-bootstrap";
 import { getSupabase } from "@/lib/supabase/server";
 
 const display = Bricolage_Grotesque({
@@ -87,6 +88,7 @@ export default async function RootLayout({
           {authed && <Header userEmail={email} />}
           <main className="relative z-10">{children}</main>
         </ClientWalletProvider>
+        <SessionBootstrap />
         <ServiceWorkerRegistrar />
       </body>
     </html>
