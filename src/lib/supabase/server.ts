@@ -13,16 +13,21 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // usan `getSupabaseOrThrow()` para fallar de forma explícita en ese caso.
 // -----------------------------------------------------------------------------
 
-export function isSupabaseConfigured(): boolean {
+// Supabase renombró "anon key" → "publishable key". Aceptamos ambos nombres.
+function supabaseKey(): string | undefined {
   return (
-    !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   );
+}
+
+export function isSupabaseConfigured(): boolean {
+  return !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!supabaseKey();
 }
 
 export async function getSupabase(): Promise<SupabaseClient | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = supabaseKey();
 
   if (!url || !key) {
     if (process.env.NODE_ENV !== "production") {

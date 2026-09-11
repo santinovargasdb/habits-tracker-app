@@ -45,15 +45,19 @@ export default function FinancesView({
   // Interés diario: silencioso al montar.
   useEffect(() => {
     let active = true;
-    calculateDailyInterest().then((res) => {
-      if (active && res.persisted && res.funds) {
-        setAmounts((prev) => {
-          const next = { ...prev };
-          for (const f of res.funds!) next[f.fund_type] = f.invested_amount;
-          return next;
-        });
-      }
-    });
+    calculateDailyInterest()
+      .then((res) => {
+        if (active && res.persisted && res.funds) {
+          setAmounts((prev) => {
+            const next = { ...prev };
+            for (const f of res.funds!) next[f.fund_type] = f.invested_amount;
+            return next;
+          });
+        }
+      })
+      .catch(() => {
+        // No rompemos la UI si el interés diario falla (p. ej. sin backend).
+      });
     return () => {
       active = false;
     };
