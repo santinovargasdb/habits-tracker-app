@@ -85,6 +85,16 @@ export default function TrackerView({
     [dailyHabits],
   );
 
+  // Diarios cuyo time_block no es uno de los 4 canónicos: los mostramos igual
+  // en una sección "Otros" para no ocultar ningún hábito.
+  const otros = useMemo(
+    () =>
+      dailyHabits.filter(
+        (h) => !(TIME_BLOCK_ORDER as readonly string[]).includes(h.time_block),
+      ),
+    [dailyHabits],
+  );
+
   function handleChange(habit: Habit, next: HabitStatus) {
     const prevStatus = logs[habit.id] ?? "NONE";
     if (next === prevStatus) return;
@@ -267,6 +277,36 @@ export default function TrackerView({
             </section>
           );
         })}
+
+        {/* Otros — diarios sin un bloque horario canónico */}
+        {otros.length > 0 && (
+          <section>
+            <div className="mb-3 flex items-center gap-2.5">
+              <span className="text-lg" aria-hidden>
+                🗂️
+              </span>
+              <h2 className="font-display text-xs font-bold uppercase tracking-[0.2em] text-muted">
+                Otros
+              </h2>
+              <span className="h-px flex-1 bg-gradient-to-r from-line to-transparent" />
+            </div>
+            <div className="space-y-2.5">
+              {otros.map((habit, i) => (
+                <HabitCard
+                  key={habit.id}
+                  name={habit.name}
+                  status={logs[habit.id] ?? "NONE"}
+                  reward={awards[habit.id] ?? 0}
+                  multiplierPercent={0}
+                  accent="#9797a6"
+                  index={i}
+                  burst={bursts[habit.id] ?? null}
+                  onChange={(next) => handleChange(habit, next)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       {/* Toast */}
