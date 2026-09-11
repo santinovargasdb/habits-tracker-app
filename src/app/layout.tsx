@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/header";
-import { WalletProvider } from "@/lib/wallet-context";
+import { ClientWalletProvider } from "@/components/client-wallet-provider";
 import { ServiceWorkerRegistrar } from "@/components/service-worker-registrar";
 import { getSupabase } from "@/lib/supabase/server";
 
@@ -49,8 +49,6 @@ interface SessionChrome {
   email: string | null;
 }
 
-// Devuelve la sesión para decidir el chrome (header/logout). OJO: esto NO debe
-// gatear al WalletProvider — ver RootLayout.
 async function getSessionChrome(): Promise<SessionChrome> {
   const supabase = await getSupabase();
   if (!supabase) return { authed: false, balance: 0, email: null };
@@ -85,17 +83,10 @@ export default async function RootLayout({
       className={`${display.variable} ${body.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        {/*
-          WalletProvider SIEMPRE envuelve a los children: la ruleta, la tienda y
-          el inventario (bajo `/`) consumen useWallet(), y el proxy y el layout
-          resuelven la sesión por separado. Gatearlo por `authed` provocaba
-          "useWallet debe usarse dentro de <WalletProvider>" cuando ambos no
-          coincidían. El Header/logout sí es condicional (sólo autenticados).
-        */}
-        <WalletProvider initialBalance={balance}>
+        <ClientWalletProvider initialBalance={balance}>
           {authed && <Header userEmail={email} />}
           <main className="relative z-10">{children}</main>
-        </WalletProvider>
+        </ClientWalletProvider>
         <ServiceWorkerRegistrar />
       </body>
     </html>
