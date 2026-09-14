@@ -85,7 +85,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full">
         <ClientWalletProvider initialBalance={balance}>
-          {authed && <Header userEmail={email} />}
+          <Header userEmail={email} />
           <main className="relative z-10">{children}</main>
         </ClientWalletProvider>
         <SessionBootstrap />
