@@ -28,7 +28,9 @@ self.addEventListener("fetch", (event) => {
       caches.match(request).then((cached) => {
         const fetched = fetch(request).then((res) => {
           const copy = res.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
+          if (res.ok) {
+            caches.open(CACHE).then((cache) => cache.put(request, copy));
+          }
           return res;
         }).catch(() => cached);
         return cached || fetched;
@@ -42,7 +44,9 @@ self.addEventListener("fetch", (event) => {
     fetch(request)
       .then((res) => {
         const copy = res.clone();
-        caches.open(CACHE).then((cache) => cache.put(request, copy));
+        if (res.ok) {
+          caches.open(CACHE).then((cache) => cache.put(request, copy));
+        }
         return res;
       })
       .catch(() => caches.match(request).then((c) => c || caches.match("/"))),
