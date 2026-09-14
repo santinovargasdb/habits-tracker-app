@@ -2,45 +2,31 @@
 
 import { useMemo, useRef, useState } from "react";
 import HabitCard from "@/components/habit-card";
-import { setHabitStatus } from "@/actions/habits";
-import { useWallet } from "@/lib/wallet-context";
 import { useGame } from "@/lib/game-context";
 import {
   TIME_BLOCK_META,
   TIME_BLOCK_ORDER,
   WEEKLY_BLOCK_META,
 } from "@/lib/constants";
-import type { AwardMap, Habit, HabitStatus, LogMap } from "@/lib/types";
-import { cn, formatLongDate, weekStartISO } from "@/lib/utils";
+import type { Habit, HabitStatus } from "@/lib/types";
+import { cn, formatLongDate } from "@/lib/utils";
+import { useTrackerData } from "@/lib/offline/use-tracker-data";
+import type { TrackerSnapshot } from "@/lib/offline/store";
+import { optimisticReward } from "@/lib/offline/reward";
 
 interface TrackerViewProps {
-  date: string;
-  habits: Habit[];
-  initialLogs: LogMap;
-  initialAwards: AwardMap;
+  seed: TrackerSnapshot | null;
 }
 
-export default function TrackerView({
-  date,
-  habits,
-  initialLogs,
-  initialAwards,
-}: TrackerViewProps) {
-  const { setBalance } = useWallet();
+export default function TrackerView({ seed }: TrackerViewProps) {
   const { multiplierForBlock } = useGame();
-  const [logs, setLogs] = useState<LogMap>(initialLogs);
-  const [awards, setAwards] = useState<AwardMap>(initialAwards);
+  const { date, habits, logs, awards, online, pendingCount, hasData, mark } =
+    useTrackerData(seed);
   const [toast, setToast] = useState<string | null>(null);
-  // Burst de monedas por hábito, disparado con el delta REAL que devuelve el RPC.
   const [bursts, setBursts] = useState<Record<string, { id: number; amount: number }>>(
     {},
   );
   const burstId = useRef(0);
-
-  // Lunes de la semana en curso: los hábitos semanales anclan su log a esta
-  // fecha, de modo que el estado se mantiene toda la semana y se reinicia solo
-  // al arrancar la siguiente.
-  const weekStart = useMemo(() => weekStartISO(date), [date]);
 
   // Separamos por cadencia: los diarios se agrupan por bloque horario; los
   // semanales van todos al Bloque Semanal (placa dorada).
@@ -100,37 +86,15 @@ export default function TrackerView({
     if (next === prevStatus) return;
 
     const prevAward = awards[habit.id] ?? 0;
-    // Los semanales anclan su log al LUNES de la semana; los diarios, a hoy.
-    const logDate = habit.frequency === "weekly" ? weekStart : date;
-
-    // 1) Optimista: sólo el estado (feedback inmediato del check). El balance y
-    //    las monedas NO se calculan en el cliente: los define el RPC.
-    setLogs((m) => ({ ...m, [habit.id]: next }));
-
-    // 2) Persistencia: confiamos ciegamente en el balance/monedas del RPC.
-    void (async () => {
-      const res = await setHabitStatus(habit.id, logDate, next);
-
-      if (!res.persisted) {
-        setLogs((m) => ({ ...m, [habit.id]: prevStatus })); // rollback del estado
-        setToast("No se pudo guardar. Revisá tu conexión / Supabase.");
-        window.setTimeout(() => setToast(null), 3200);
-        return;
-      }
-
-      if (res.balance !== null) setBalance(res.balance);
-      if (res.coinsAwarded !== null) {
-        const awarded = res.coinsAwarded;
-        setAwards((m) => ({ ...m, [habit.id]: awarded }));
-        // Burst con el delta REAL acreditado por el servidor.
-        const delta = awarded - prevAward;
-        if (delta !== 0) {
-          burstId.current += 1;
-          const id = burstId.current;
-          setBursts((b) => ({ ...b, [habit.id]: { id, amount: delta } }));
-        }
-      }
-    })();
+    mark(habit, next);
+    // Burst con el delta optimista (el server reconcilia el saldo al sincronizar).
+    const reward = optimisticReward({ status: next, frequency: habit.frequency, deckBonusPercent: 0 });
+    const delta = reward - prevAward;
+    if (delta !== 0) {
+      burstId.current += 1;
+      const id = burstId.current;
+      setBursts((b) => ({ ...b, [habit.id]: { id, amount: delta } }));
+    }
   }
 
   const progress = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -145,6 +109,26 @@ export default function TrackerView({
         <h1 className="mt-1 font-display text-[26px] font-extrabold capitalize leading-tight tracking-tight text-fg">
           {formatLongDate(date)}
         </h1>
+
+        {(!online || pendingCount > 0) && (
+          <div className="mt-2 flex items-center gap-2">
+            {!online && (
+              <span className="rounded-full border border-line bg-surface/70 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted">
+                ● Offline
+              </span>
+            )}
+            {pendingCount > 0 && (
+              <span className="rounded-full border border-gold/30 bg-gold/12 px-2 py-0.5 font-mono text-[10px] font-bold text-gold">
+                {pendingCount} pendiente{pendingCount === 1 ? "" : "s"} de sincronizar
+              </span>
+            )}
+          </div>
+        )}
+        {!hasData && (
+          <p className="mt-3 rounded-xl border border-line bg-surface/70 p-3 text-sm text-muted">
+            Conectate a internet una vez para cargar tus hábitos.
+          </p>
+        )}
 
         <div className="mt-4 rounded-2xl border border-line bg-surface/70 p-4">
           <div className="flex items-end justify-between">

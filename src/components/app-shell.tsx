@@ -7,21 +7,16 @@ import StoreView from "@/components/store-view";
 import FinancesView from "@/components/finances-view";
 import { BottomNav, type AppTab } from "@/components/bottom-nav";
 import { GameProvider } from "@/lib/game-context";
+import type { TrackerSnapshot } from "@/lib/offline/store";
 import type {
-  AwardMap,
   Card,
   Deck,
-  Habit,
   Investment,
-  LogMap,
   OwnedCard,
 } from "@/lib/types";
 
 interface AppShellProps {
-  date: string;
-  habits: Habit[];
-  initialLogs: LogMap;
-  initialAwards: AwardMap;
+  seed: TrackerSnapshot | null;
   cards: Card[];
   inventory: OwnedCard[];
   initialDeck: Deck;
@@ -29,10 +24,7 @@ interface AppShellProps {
 }
 
 export default function AppShell({
-  date,
-  habits,
-  initialLogs,
-  initialAwards,
+  seed,
   cards,
   inventory,
   initialDeck,
@@ -44,12 +36,7 @@ export default function AppShell({
     <GameProvider cards={cards} inventory={inventory} initialDeck={initialDeck}>
       {/* Mantenemos ambas vistas montadas para preservar estado/scroll al alternar */}
       <div hidden={tab !== "tracker"}>
-        <TrackerView
-          date={date}
-          habits={habits}
-          initialLogs={initialLogs}
-          initialAwards={initialAwards}
-        />
+        <TrackerView seed={seed} />
       </div>
       <div hidden={tab !== "mazo"}>
         <DeckView />

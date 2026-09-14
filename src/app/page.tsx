@@ -3,14 +3,13 @@ import { getSupabase } from "@/lib/supabase/server";
 import { EMPTY_DECK, normalizeTimeBlock } from "@/lib/constants";
 import { todayISO, weekStartISO } from "@/lib/utils";
 import type {
-  AwardMap,
   Card,
   Deck,
   Habit,
   Investment,
-  LogMap,
   OwnedCard,
 } from "@/lib/types";
+import type { TrackerSnapshot } from "@/lib/offline/store";
 
 // Siempre renderizar en el request (datos del día actual, sin cache).
 export const dynamic = "force-dynamic";
@@ -24,8 +23,8 @@ export default async function Page() {
   let inventory: OwnedCard[] = [];
   let deck: Deck = EMPTY_DECK;
   let investments: Investment[] = [];
-  const logs: LogMap = {};
-  const awards: AwardMap = {};
+  const logs: TrackerSnapshot["logs"] = {};
+  const awards: TrackerSnapshot["awards"] = {};
 
   if (supabase) {
     // Hábitos (incluye `frequency` y `multiplier` para el Bloque Semanal).
@@ -153,12 +152,17 @@ export default async function Page() {
     if (dbInv2 && dbInv2.length > 0) investments = dbInv2 as Investment[];
   }
 
+  const seed: TrackerSnapshot = {
+    date,
+    habits,
+    logs,
+    awards,
+    balance: 0, // el saldo lo maneja el wallet-context / store local
+  };
+
   return (
     <AppShell
-      date={date}
-      habits={habits}
-      initialLogs={logs}
-      initialAwards={awards}
+      seed={seed}
       cards={cards}
       inventory={inventory}
       initialDeck={deck}
