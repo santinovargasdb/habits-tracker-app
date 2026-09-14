@@ -14,10 +14,24 @@ function initial(seed: TrackerSnapshot | null): TrackerSnapshot {
   const stored = readSnapshot();
   const today = todayISO();
   const base = stored ?? seed ?? { date: today, habits: [], logs: {}, awards: {}, balance: 0 };
-  // Si el snapshot guardado es de otro día, reseteamos los logs diarios (los
-  // semanales se re-piden en el pull; el marcado local se rehace igual).
-  if (base.date !== today) return { ...base, date: today, logs: {}, awards: {} };
-  return base;
+  if (base.date === today) return base;
+  // Nuevo día: los logs DIARIOS se reinician; los SEMANALES se conservan si
+  // seguimos en la misma semana (su log está anclado al lunes).
+  const sameWeek = weekStartISO(base.date) === weekStartISO(today);
+  const weeklyIds = new Set(
+    base.habits.filter((h) => h.frequency === "weekly").map((h) => h.id),
+  );
+  const logs: LogMap = {};
+  const awards: AwardMap = {};
+  if (sameWeek) {
+    for (const id of Object.keys(base.logs)) {
+      if (weeklyIds.has(id)) {
+        logs[id] = base.logs[id];
+        awards[id] = base.awards[id] ?? 0;
+      }
+    }
+  }
+  return { ...base, date: today, logs, awards };
 }
 
 export function useTrackerData(seed: TrackerSnapshot | null) {
@@ -25,6 +39,7 @@ export function useTrackerData(seed: TrackerSnapshot | null) {
   const { setBalance } = useWallet();
   const [snap, setSnap] = useState<TrackerSnapshot>(() => initial(seed));
   const [pendingCount, setPendingCount] = useState<number>(() => readOutbox().length);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fix 1: unmount-safety ref
@@ -56,6 +71,9 @@ export function useTrackerData(seed: TrackerSnapshot | null) {
       snapRef.current = res.snapshot;
       setSnap(res.snapshot);
       setBalance(res.snapshot.balance);
+      setSyncError(null);
+    } else if (res.reason !== "offline" && res.reason !== "busy") {
+      setSyncError("No se pudo sincronizar. Reintentaremos.");
     }
     refreshPending();
   }, [setBalance, refreshPending]);
@@ -104,5 +122,6 @@ export function useTrackerData(seed: TrackerSnapshot | null) {
     pendingCount,
     hasData: snap.habits.length > 0,
     mark,
+    syncError,
   };
 }

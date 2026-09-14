@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import HabitCard from "@/components/habit-card";
 import { useGame } from "@/lib/game-context";
 import {
@@ -20,9 +20,16 @@ interface TrackerViewProps {
 
 export default function TrackerView({ seed }: TrackerViewProps) {
   const { multiplierForBlock } = useGame();
-  const { date, habits, logs, awards, online, pendingCount, hasData, mark } =
+  const { date, habits, logs, awards, online, pendingCount, hasData, mark, syncError } =
     useTrackerData(seed);
   const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!syncError) return;
+    setToast(syncError);
+    const t = setTimeout(() => setToast(null), 3200);
+    return () => clearTimeout(t);
+  }, [syncError]);
   const [bursts, setBursts] = useState<Record<string, { id: number; amount: number }>>(
     {},
   );

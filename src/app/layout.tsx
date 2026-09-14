@@ -76,7 +76,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { authed, balance, email } = await getSessionChrome();
+  const { balance, email } = await getSessionChrome();
 
   return (
     <html
