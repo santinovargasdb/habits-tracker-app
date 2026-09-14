@@ -1,19 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
-import { WalletProvider, useWallet } from "@/lib/wallet-context";
-import { readSnapshot } from "@/lib/offline/store";
+import { WalletProvider } from "@/lib/wallet-context";
 import { ReactNode } from "react";
 
-function BalanceHydrator() {
-  const { setBalance } = useWallet();
-  useEffect(() => {
-    const snap = readSnapshot();
-    if (snap) setBalance(snap.balance);
-  }, [setBalance]);
-  return null;
-}
-
+/**
+ * Provee el wallet-context sembrado con el saldo del SSR. La hidratación desde el
+ * store local y las actualizaciones de balance (sync + marca optimista) las hace
+ * `useTrackerData` — único dueño del balance offline, para no duplicar responsabilidad.
+ */
 export function ClientWalletProvider({
   initialBalance,
   children,
@@ -22,9 +16,6 @@ export function ClientWalletProvider({
   children: ReactNode;
 }) {
   return (
-    <WalletProvider initialBalance={initialBalance}>
-      <BalanceHydrator />
-      {children}
-    </WalletProvider>
+    <WalletProvider initialBalance={initialBalance}>{children}</WalletProvider>
   );
 }

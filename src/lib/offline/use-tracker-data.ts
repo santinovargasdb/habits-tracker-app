@@ -60,7 +60,10 @@ export function useTrackerData(seed: TrackerSnapshot | null) {
     snapRef.current = snap;
   }, [snap]);
 
-  // Fix 1: cleanup on unmount
+  // Fix 1: cleanup on unmount. El `mountedRef.current = true` del cuerpo es
+  // NECESARIO (no borrar): en StrictMode el effect corre → cleanup (pone false) →
+  // corre de nuevo; sin re-setear a true, mountedRef quedaría en false y runSync
+  // no actualizaría nunca el estado.
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -71,15 +74,17 @@ export function useTrackerData(seed: TrackerSnapshot | null) {
 
   // Hidratación del store local DESPUÉS del montaje. El primer render usó el seed
   // (idéntico al SSR); recién acá cargamos lo persistido, sin causar mismatch.
+  // También hidratamos el saldo del store (único dueño del balance offline).
   useEffect(() => {
     const stored = readSnapshot();
     if (stored) {
       const s = rolledOver(stored);
       snapRef.current = s;
       setSnap(s);
+      setBalance(s.balance);
     }
     setPendingCount(readOutbox().length);
-  }, []);
+  }, [setBalance]);
 
   const refreshPending = useCallback(() => setPendingCount(readOutbox().length), []);
 

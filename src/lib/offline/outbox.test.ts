@@ -31,4 +31,18 @@ describe("outbox", () => {
     outbox.clear();
     expect(outbox.all()).toEqual([]);
   });
+
+  it("mantiene entradas de distintos (habitId, logDate) y remove sólo saca una", () => {
+    outbox.enqueue({ habitId: "h1", logDate: "2026-09-14", status: "MET", updatedAt: 1 });
+    outbox.enqueue({ habitId: "h2", logDate: "2026-09-14", status: "MET", updatedAt: 1 });
+    outbox.enqueue({ habitId: "h1", logDate: "2026-09-08", status: "SURPASSED", updatedAt: 1 });
+    expect(outbox.all()).toHaveLength(3);
+
+    outbox.remove("h1", "2026-09-14");
+    const rest = outbox
+      .all()
+      .map((e) => `${e.habitId}:${e.logDate}`)
+      .sort();
+    expect(rest).toEqual(["h1:2026-09-08", "h2:2026-09-14"]);
+  });
 });

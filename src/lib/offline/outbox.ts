@@ -15,7 +15,8 @@ export function all(): OutboxEntry[] {
 }
 
 export function remove(habitId: string, logDate: string): void {
-  writeOutbox(readOutbox().filter((e) => key(e.habitId, e.logDate) !== key(habitId, logDate)));
+  const k = key(habitId, logDate);
+  writeOutbox(readOutbox().filter((e) => key(e.habitId, e.logDate) !== k));
 }
 
 export function clear(): void {

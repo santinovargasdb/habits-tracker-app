@@ -45,19 +45,18 @@ export const viewport: Viewport = {
 };
 
 interface SessionChrome {
-  authed: boolean;
   balance: number;
   email: string | null;
 }
 
 async function getSessionChrome(): Promise<SessionChrome> {
   const supabase = await getSupabase();
-  if (!supabase) return { authed: false, balance: 0, email: null };
+  if (!supabase) return { balance: 0, email: null };
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { authed: false, balance: 0, email: null };
+  if (!user) return { balance: 0, email: null };
 
   const { data } = await supabase
     .from("wallet")
@@ -65,7 +64,6 @@ async function getSessionChrome(): Promise<SessionChrome> {
     .limit(1)
     .maybeSingle();
   return {
-    authed: true,
     balance: data?.balance ?? 0,
     email: user.email ?? null,
   };
