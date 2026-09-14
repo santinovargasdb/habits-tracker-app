@@ -10,13 +10,22 @@ import { optimisticReward } from "./reward";
 import { syncNow } from "./sync";
 import { useOnline } from "./use-online";
 
-function initial(seed: TrackerSnapshot | null): TrackerSnapshot {
-  const stored = readSnapshot();
+// Estado inicial DETERMINÍSTICO desde el seed del servidor: el primer render del
+// cliente DEBE coincidir con el HTML del SSR (si lee localStorage acá, difiere y
+// React tira hydration mismatch #418). El store local se hidrata DESPUÉS del
+// montaje, en un effect (ver useTrackerData).
+function fromSeed(seed: TrackerSnapshot | null): TrackerSnapshot {
+  return (
+    seed ?? { date: todayISO(), habits: [], logs: {}, awards: {}, balance: 0 }
+  );
+}
+
+// Reinicio por cambio de día aplicado a un snapshot del store: los diarios se
+// reinician; los semanales se conservan si seguimos en la misma semana (su log
+// está anclado al lunes).
+function rolledOver(base: TrackerSnapshot): TrackerSnapshot {
   const today = todayISO();
-  const base = stored ?? seed ?? { date: today, habits: [], logs: {}, awards: {}, balance: 0 };
   if (base.date === today) return base;
-  // Nuevo día: los logs DIARIOS se reinician; los SEMANALES se conservan si
-  // seguimos en la misma semana (su log está anclado al lunes).
   const sameWeek = weekStartISO(base.date) === weekStartISO(today);
   const weeklyIds = new Set(
     base.habits.filter((h) => h.frequency === "weekly").map((h) => h.id),
@@ -37,8 +46,8 @@ function initial(seed: TrackerSnapshot | null): TrackerSnapshot {
 export function useTrackerData(seed: TrackerSnapshot | null) {
   const online = useOnline();
   const { setBalance } = useWallet();
-  const [snap, setSnap] = useState<TrackerSnapshot>(() => initial(seed));
-  const [pendingCount, setPendingCount] = useState<number>(() => readOutbox().length);
+  const [snap, setSnap] = useState<TrackerSnapshot>(() => fromSeed(seed));
+  const [pendingCount, setPendingCount] = useState<number>(0);
   const [syncError, setSyncError] = useState<string | null>(null);
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -58,6 +67,18 @@ export function useTrackerData(seed: TrackerSnapshot | null) {
       mountedRef.current = false;
       if (syncTimer.current) clearTimeout(syncTimer.current);
     };
+  }, []);
+
+  // Hidratación del store local DESPUÉS del montaje. El primer render usó el seed
+  // (idéntico al SSR); recién acá cargamos lo persistido, sin causar mismatch.
+  useEffect(() => {
+    const stored = readSnapshot();
+    if (stored) {
+      const s = rolledOver(stored);
+      snapRef.current = s;
+      setSnap(s);
+    }
+    setPendingCount(readOutbox().length);
   }, []);
 
   const refreshPending = useCallback(() => setPendingCount(readOutbox().length), []);
