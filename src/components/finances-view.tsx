@@ -9,6 +9,7 @@ import { calculateDailyInterest, manageInvestment } from "@/actions/finances";
 import { useWallet } from "@/lib/wallet-context";
 import { FUND_META, FUND_ORDER } from "@/lib/constants";
 import type { FundType, Investment } from "@/lib/types";
+import { useOnline } from "@/lib/offline/use-online";
 
 interface FinancesViewProps {
   initialInvestments: Investment[];
@@ -22,6 +23,7 @@ function parseAmount(raw: string): number {
 export default function FinancesView({
   initialInvestments,
 }: FinancesViewProps) {
+  const online = useOnline();
   const { balance, setBalance, addToBalance } = useWallet();
 
   // -------------------------------------------------------------- Inversión
@@ -36,11 +38,6 @@ export default function FinancesView({
   });
   const [busyFund, setBusyFund] = useState<FundType | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-
-  function showToast(msg: string) {
-    setToast(msg);
-    window.setTimeout(() => setToast(null), 3000);
-  }
 
   // Interés diario: silencioso al montar.
   useEffect(() => {
@@ -62,6 +59,21 @@ export default function FinancesView({
       active = false;
     };
   }, []);
+
+  if (!online) {
+    return (
+      <div className="relative z-10 mx-auto w-full max-w-md px-4 pb-28 pt-6">
+        <p className="rounded-2xl border border-line bg-surface/70 p-4 text-center text-sm text-muted">
+          Esta sección necesita internet. Volvé a conectarte para usarla.
+        </p>
+      </div>
+    );
+  }
+
+  function showToast(msg: string) {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 3000);
+  }
 
   async function move(fund: FundType, action: "DEPOSIT" | "WITHDRAW") {
     if (busyFund) return;

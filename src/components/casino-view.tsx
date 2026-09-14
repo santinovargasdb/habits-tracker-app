@@ -5,6 +5,7 @@ import { Dices } from "lucide-react";
 import RouletteView from "@/components/roulette-view";
 import BlackjackView from "@/components/blackjack-view";
 import { cn } from "@/lib/utils";
+import { useOnline } from "@/lib/offline/use-online";
 
 type CasinoTab = "ruleta" | "blackjack";
 
@@ -14,7 +15,18 @@ const TABS: [CasinoTab, string][] = [
 ];
 
 export default function CasinoView() {
+  const online = useOnline();
   const [tab, setTab] = useState<CasinoTab>("ruleta");
+
+  if (!online) {
+    return (
+      <div className="relative z-10 mx-auto w-full max-w-md px-4 pb-28 pt-6">
+        <p className="rounded-2xl border border-line bg-surface/70 p-4 text-center text-sm text-muted">
+          Esta sección necesita internet. Volvé a conectarte para usarla.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <section>

@@ -19,6 +19,7 @@ import {
 } from "@/lib/constants";
 import type { Card } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useOnline } from "@/lib/offline/use-online";
 
 interface RevealState {
   phase: RevealPhase;
@@ -39,12 +40,23 @@ const CLOSED: RevealState = {
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export default function StoreView() {
+  const online = useOnline();
   const { balance, setBalance } = useWallet();
   const { cardById, applyCardWin } = useGame();
 
   const [reveal, setReveal] = useState<RevealState>(CLOSED);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  if (!online) {
+    return (
+      <div className="relative z-10 mx-auto w-full max-w-md px-4 pb-28 pt-6">
+        <p className="rounded-2xl border border-line bg-surface/70 p-4 text-center text-sm text-muted">
+          Esta sección necesita internet. Volvé a conectarte para usarla.
+        </p>
+      </div>
+    );
+  }
 
   function showToast(msg: string) {
     setToast(msg);
