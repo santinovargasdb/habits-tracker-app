@@ -25,6 +25,32 @@ export const TIME_BLOCK_ORDER: TimeBlock[] = [
   "Noche",
 ];
 
+// -----------------------------------------------------------------------------
+// La base de datos de producción guarda el `time_block` con etiquetas en INGLÉS
+// (MORNING/COMMUTE/AFTERNOON/NIGHT), pero la UI agrupa por las canónicas en
+// español (TIME_BLOCK_ORDER). Sin esta traducción, TODO hábito diario falla el
+// match y termina en la sección "Otros" (o, antes del catch-all, quedaba oculto).
+// Normalizamos al cargar desde la DB, igual que hacemos con `frequency`.
+// -----------------------------------------------------------------------------
+const TIME_BLOCK_ALIASES: Record<string, TimeBlock> = {
+  MORNING: "Madrugada",
+  COMMUTE: "Viaje",
+  AFTERNOON: "Tarde",
+  NIGHT: "Noche",
+};
+
+/**
+ * Devuelve el bloque horario canónico (español) para un valor crudo de la DB.
+ * Acepta ya-canónicos y alias en inglés (case-insensitive). Si no reconoce el
+ * valor, lo devuelve tal cual: la sección "Otros" de la UI lo captura igual, así
+ * ningún hábito queda oculto por un bloque inesperado (p. ej. "WEEKLY").
+ */
+export function normalizeTimeBlock(raw: unknown): TimeBlock {
+  const s = String(raw ?? "").trim();
+  if ((TIME_BLOCK_ORDER as readonly string[]).includes(s)) return s as TimeBlock;
+  return (TIME_BLOCK_ALIASES[s.toUpperCase()] ?? s) as TimeBlock;
+}
+
 export interface TimeBlockMeta {
   label: string;
   tagline: string;

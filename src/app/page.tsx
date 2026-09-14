@@ -1,6 +1,6 @@
 import AppShell from "@/components/app-shell";
 import { getSupabase } from "@/lib/supabase/server";
-import { EMPTY_DECK } from "@/lib/constants";
+import { EMPTY_DECK, normalizeTimeBlock } from "@/lib/constants";
 import { todayISO, weekStartISO } from "@/lib/utils";
 import type {
   AwardMap,
@@ -45,6 +45,9 @@ export default async function Page() {
     if (dbHabits && dbHabits.length > 0) {
       habits = dbHabits.map((h) => ({
         ...h,
+        // La DB de prod guarda el bloque en inglés (MORNING/COMMUTE/...); la UI
+        // agrupa por las etiquetas canónicas en español. Traducimos al cargar.
+        time_block: normalizeTimeBlock(h.time_block),
         // Normalizamos la cadencia a minúsculas (la DB puede tener 'weekly' o 'WEEKLY').
         frequency: String(h.frequency ?? "daily").toLowerCase(),
         multiplier: typeof h.multiplier === "number" ? h.multiplier : 1,
