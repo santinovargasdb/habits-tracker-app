@@ -27,11 +27,33 @@ export function useTrackerData(seed: TrackerSnapshot | null) {
   const [pendingCount, setPendingCount] = useState<number>(() => readOutbox().length);
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Fix 1: unmount-safety ref
+  const mountedRef = useRef(true);
+
+  // Fix 2: snapshot ref to avoid side effects inside setState updater
+  const snapRef = useRef(snap);
+  useEffect(() => {
+    snapRef.current = snap;
+  }, [snap]);
+
+  // Fix 1: cleanup on unmount
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (syncTimer.current) clearTimeout(syncTimer.current);
+    };
+  }, []);
+
   const refreshPending = useCallback(() => setPendingCount(readOutbox().length), []);
 
   const runSync = useCallback(async () => {
     const res = await syncNow();
+    // Fix 1: guard setState calls after unmount
+    if (!mountedRef.current) return;
     if (res.ok) {
+      // Fix 2: keep snapRef in sync from runSync success path
+      snapRef.current = res.snapshot;
       setSnap(res.snapshot);
       setBalance(res.snapshot.balance);
     }
@@ -47,17 +69,22 @@ export function useTrackerData(seed: TrackerSnapshot | null) {
     (habit: Habit, status: HabitStatus) => {
       const date = todayISO();
       const logDate = habit.frequency === "weekly" ? weekStartISO(date) : date;
-      setSnap((prev) => {
-        const prevReward = prev.awards[habit.id] ?? 0;
-        const reward = optimisticReward({ status, frequency: habit.frequency, deckBonusPercent: 0 });
-        const logs: LogMap = { ...prev.logs, [habit.id]: status };
-        const awards: AwardMap = { ...prev.awards, [habit.id]: reward };
-        const balance = prev.balance + (reward - prevReward);
-        const next: TrackerSnapshot = { ...prev, date, logs, awards, balance };
-        writeSnapshot(next);
-        setBalance(balance);
-        return next;
-      });
+
+      // Fix 2: compute next outside any setState updater using snapRef
+      const prev = snapRef.current;
+      const prevReward = prev.awards[habit.id] ?? 0;
+      const reward = optimisticReward({ status, frequency: habit.frequency, deckBonusPercent: 0 });
+      const logs: LogMap = { ...prev.logs, [habit.id]: status };
+      const awards: AwardMap = { ...prev.awards, [habit.id]: reward };
+      const balance = prev.balance + (reward - prevReward);
+      const next: TrackerSnapshot = { ...prev, date, logs, awards, balance };
+
+      // Fix 2: all side effects happen outside any updater, synchronously
+      snapRef.current = next;
+      setSnap(next);
+      writeSnapshot(next);
+      setBalance(next.balance);
+
       outbox.enqueue({ habitId: habit.id, logDate, status, updatedAt: Date.now() });
       refreshPending();
       if (online) {
