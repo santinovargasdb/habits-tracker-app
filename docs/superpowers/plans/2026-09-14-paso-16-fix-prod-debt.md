@@ -395,10 +395,16 @@ Si el dry-run falla: corregir `supabase/16_fix_prod_debt.sql`, recommitear (repe
 Run (Supabase SQL Editor): pegar/ejecutar el archivo tal cual (con `commit;`).
 Expected: "COMMIT", sin errores.
 
-- [ ] **Step 2: Verificar el gacha**
+- [ ] **Step 2: Verificar el fix del gacha (sin auth)**
 
-Run: `select * from public.purchase_chest(500, 'BASICO');`
-Expected: una fila con `won_card_id` no nulo (una carta del catálogo). Repetir 2-3 veces: las rarezas deben respetar aproximadamente los pesos (mayoría Common) y NO caer siempre al fallback.
+⚠️ NO llamar `purchase_chest(...)` desde el SQL Editor: la función arranca con
+`if auth.uid() is null then raise 'No autenticado'` y en el editor no hay usuario
+logueado → siempre falla ahí. Se verifica indirectamente que la comparación de
+rareza ahora encuentra cartas (que es lo que hacía fallar al gacha):
+
+Run: `select rarity, count(*) from public.cards group by rarity order by rarity;`
+Expected: `Common`, `Rare`, `Epic`, `Legendary`, todas con count > 0 (rareza capitalizada).
+El test funcional del gacha (que sí necesita `auth.uid()`) se hace desde la app en la Task 4.
 
 - [ ] **Step 3: Verificar normalización de datos**
 
