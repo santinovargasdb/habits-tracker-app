@@ -187,9 +187,9 @@ begin
   on conflict (user_id) do nothing;
 
   update public.wallet
-    set balance = balance + v_delta, updated_at = now()
+    set balance = public.wallet.balance + v_delta, updated_at = now()
     where user_id = v_uid
-    returning wallet.balance into v_balance;
+    returning public.wallet.balance into v_balance;
 
   return query select v_balance, p_status, v_final;
 end;
