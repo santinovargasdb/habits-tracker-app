@@ -26,14 +26,14 @@ wallet, y multiplicadores con **~3% de ventaja de la casa**.
 
 **No-objetivos:**
 - Sin modo offline (el casino ya es online-only; las vistas muestran el aviso cuando `!online`).
-- Sin dificultad elegible en el Pollito (dificultad **fija**). Minas sí tiene presets de cantidad.
+- Sin dificultad elegible en el Pollito (dificultad **fija**). Minas sí permite elegir la cantidad (1–24).
 - No cambia la economía de hábitos ni los otros juegos.
 - Sin "provably fair" con seed público (RNG server-side simple, `random()` de Postgres — igual que
   el resto del casino actual).
 
 ## Decisiones (brainstorming 2026-09-15)
 
-1. **Minas:** cuadrícula 5×5 (25 casillas); cantidad de minas elegible con presets **3 / 5 / 10**.
+1. **Minas:** cuadrícula 5×5 (25 casillas); cantidad de minas **elegible libremente de 1 a 24** (selector). Cuantas más minas, más paga (el multiplicador sube con la cantidad de minas). Máx 24 (deja ≥1 casilla segura).
 2. **Pollito:** dificultad **fija**, **25% de morir por carril** (supervivencia 0.75), **tope 20 carriles**.
 3. **House edge ~3%** en ambos: `multiplicador = 0.97 / P(sobrevivir)`.
 4. Apuesta con monedas del wallet; mín 1; el server valida saldo, descuenta al empezar y acredita al cobrar.
@@ -46,8 +46,8 @@ Ambos deben coincidir. Constante de casa: `EDGE = 0.97`.
 ### Minas
 - 25 casillas, `M` minas, `safe = 25 - M`.
 - Tras `k` casillas seguras: `P(k) = Π_{i=0}^{k-1} (safe - i) / (25 - i)`.
-- `minesMultiplier(M, k) = k === 0 ? 1 : round(EDGE / P(k), 2)`.
-- Valores de referencia (para tests):
+- `minesMultiplier(M, k) = k === 0 ? 1 : round(EDGE / P(k), 2)`. Válido para `M` de 1 a 24.
+- Valores de referencia (muestras para tests; M cualquiera 1–24):
 
 | Minas | k=1 | k=2 | k=3 |
 |---|---|---|---|
@@ -55,7 +55,8 @@ Ambos deben coincidir. Constante de casa: `EDGE = 0.97`.
 | 5  | 1.21 | 1.53 | 1.96 |
 | 10 | 1.62 | 2.77 | 4.90 |
 
-- `k = 0` → `1.00`. Máx `k = safe` (todas las seguras destapadas → gana al tope).
+- `k = 0` → `1.00`. Máx `k = safe = 25 - M` (todas las seguras destapadas → gana al tope).
+  A más minas, menos casillas seguras pero mayor multiplicador por casilla.
 
 ### Pollito
 - `s = 0.75` (supervivencia por carril), muerte `= 0.25`.
@@ -81,7 +82,7 @@ Ambos deben coincidir. Constante de casa: `EDGE = 0.97`.
   id uuid pk default gen_random_uuid()
   user_id uuid not null references auth.users(id) on delete cascade default auth.uid()
   bet integer not null
-  mines_count integer not null            -- 3 | 5 | 10
+  mines_count integer not null            -- 1..24 (elegido por el jugador)
   mine_positions integer[] not null       -- OCULTO (0..24)
   picks integer[] not null default '{}'   -- casillas seguras destapadas
   status text not null default 'PLAYING'  -- PLAYING | DONE
@@ -99,7 +100,7 @@ Ambos deben coincidir. Constante de casa: `EDGE = 0.97`.
   `next_multiplier = mines_multiplier(mines_count, array_length(picks)+1)` (hint para la UI).
 - RPCs (SECURITY DEFINER, `auth.uid()`, `set search_path = public`):
   - `mines_start(p_bet integer, p_mines integer)`:
-    valida `p_mines in (3,5,10)`, `p_bet > 0`, saldo suficiente; descuenta `p_bet`;
+    valida `p_mines between 1 and 24`, `p_bet > 0`, saldo suficiente; descuenta `p_bet`;
     sortea `p_mines` posiciones distintas 0..24; upsert en `mines_games` (`on conflict (user_id) do update`,
     reiniciando picks/status — abandonar una partida previa PLAYING pierde su apuesta ya descontada);
     devuelve `mines_render` (multiplier=1, picks={}, revealed_mines=null).
@@ -148,7 +149,8 @@ Cada uno hace `supabase.rpc('mines_start', { p_bet, p_mines })` etc. y devuelve 
 
 ### 4. Vistas — `src/components/mines-view.tsx`, `src/components/chicken-view.tsx`
 Estilo `blackjack-view` (Button, `useWallet`, saldo autoritativo del RPC).
-- **Mines:** input de apuesta + selector 3/5/10; al iniciar, grid 5×5 de botones; cada click llama
+- **Mines:** input de apuesta + selector de minas **1–24** (input numérico o slider, con el multiplicador
+  de la 1ª casilla mostrado como referencia según la cantidad elegida); al iniciar, grid 5×5 de botones; cada click llama
   `minesPick`; casilla segura muestra ✓ (o el multiplicador acumulado); al perder, se revelan las minas
   (💣) desde `revealed_mines`; botón **"Retirar x{multiplier} = {payout}"** cuando hay ≥1 pick. Estado
   de la partida en curso se mantiene montado (como blackjack).
