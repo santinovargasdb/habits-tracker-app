@@ -1,5 +1,5 @@
 // Service worker: shell + estáticos para uso offline del Tracker.
-const CACHE = "dojo-ledger-v2";
+const CACHE = "dojo-ledger-v3";
 const SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-maskable.svg"];
 
 self.addEventListener("install", (event) => {
@@ -21,6 +21,23 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   // Solo GET del mismo origen; POST (Server Actions) y Supabase pasan directo.
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
+
+  // Arte de cartas (estático, local): cache-first con revalidación en segundo plano.
+  if (url.pathname.startsWith("/cards/")) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        const fetched = fetch(request).then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((cache) => cache.put(request, copy));
+          }
+          return res;
+        }).catch(() => cached);
+        return cached || fetched;
+      }),
+    );
+    return;
+  }
 
   // Estáticos de Next (hasheados): stale-while-revalidate.
   if (url.pathname.startsWith("/_next/static/")) {
