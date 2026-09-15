@@ -106,19 +106,56 @@ sin uso o marcarse como deprecados; no es objetivo de este trabajo eliminarlos.
 - **E2E:** equipar 8 cartas, marcar un hábito, verificar que las monedas suben por el % sumado; y que
   las cartas muestran arte real (no el emoji de fallback).
 
-## Insumos pendientes (para el plan)
+## Datos de producción (resueltos 2026-09-15)
 
-- **Catálogo exacto de prod** (`select id, name, rarity, target_block, multiplier_percent, image_url
-  from public.cards order by rarity, name`) — para armar el mapeo nombre→slug→archivo y el `UPDATE`.
-- **Definición viva de `set_habit_status`** en prod (firma y cuerpo que llama el frontend) — para
-  saber exactamente dónde inyectar el nuevo multiplicador. Se obtiene con `pg_get_functiondef` o del
-  dump que ya documenta `supabase/15_align_prod.sql`.
+Se consultó prod. Hallazgos que refinan el plan:
+
+- **40 cartas**, todas con `target_block = NULL` (**globales**) → no hay filtrado por bloque; las 8
+  equipadas siempre aplican. Reparto: 20 Common, 10 Rare, 6 Epic, 4 Legendary.
+- **`multiplier_percent = 0` en TODAS las cartas.** El bonus vive en otra columna, `cards.multiplier`
+  (numeric: **1.05 / 1.10 / 1.20 / 1.35** por rareza Common/Rare/Epic/Legendary). Además
+  `set_habit_status` suma `multiplier_percent` (=0) → **el mazo hoy paga +0% siempre**.
+  → El plan **puebla `multiplier_percent`** con enteros derivados de `multiplier`:
+  `round((multiplier − 1) × 100)` = **Common 5, Rare 10, Epic 20, Legendary 35**. (El usuario puede
+  ajustar estos números; son fieles a los valores que ya tenía prod.) El servidor pasa a sumar
+  `effective_multiplier(multiplier_percent, nivel)` sobre las **equipadas**.
+- **Arte en `icon_url` (roto), `image_url` = NULL.** El frontend lee `icon_url ?? image_url`
+  (`src/app/page.tsx:93`, `src/actions/gacha.ts:131`), así que **`icon_url` tiene prioridad**. → La
+  migración setea **ambas** columnas (`icon_url` **e** `image_url`) al path local `/cards/<slug>.png`.
+- **Normalización rota en el cliente** (`src/app/page.tsx:86-91`): como PostgREST devuelve `multiplier`
+  como **string**, el `typeof === "number"` da falso y cae a `multiplier_percent = 0` → todas muestran
+  "+0%". Al poblar `multiplier_percent` (entero) el display queda correcto; igual se limpia esa
+  normalización para que prefiera `multiplier_percent` y no dependa del tipo de `multiplier`.
+- **`set_habit_status(uuid, date, text)`** es la función viva que llama el frontend. Suma el bonus
+  inline desde `active_deck` (líneas con `join lateral (values (ad.slot_1)...)`). El plan **reescribe
+  ese bloque** para sumar desde `user_inventory` equipado (misma comparación de bloque por texto), y de
+  paso redefine `deck_multiplier_percent` para leer equipadas (higiene: que ninguna función residual
+  pague desde `active_deck`). Reusa `public.effective_multiplier(multiplier_percent, level)` (ya existe
+  en prod).
+
+### Mapeo nombre → arte (slug RoyaleAPI `cards-150`)
+
+40 cartas → slug oficial. Los marcados con «?» se verifican al descargar (404 → ajustar):
+
+`Arqueras→archers`, `Bárbaros→barbarians`, `Bárbaros de Élite→elite-barbarians`, `Bombardero→bomber`,
+`Caballero→knight`, `Cañón→cannon`, `Descarga→zap`, `Duendes con Dagas→goblins`,
+`Duendes con Lanza→spear-goblins`, `Esbirros→minions`, `Espíritu de Fuego→fire-spirits (?)`,
+`Espíritu de Hielo→ice-spirit`, `Espíritu Eléctrico→electro-spirit`, `Esqueletos→skeletons`,
+`Flechas→arrows`, `Horda de Esbirros→minion-horde`, `Mortero→mortar`, `Rompemuros→wall-breakers`,
+`Tesla→tesla`, `Torre de Bombas→bomb-tower`, `Bebé Dragón→baby-dragon`,
+`Ejército de Esqueletos→skeleton-army`, `Espejo→mirror`, `Globo Bombástico→balloon`,
+`Lanza Rocas→bowler`, `Príncipe→prince`, `Leñador→lumberjack`, `Mago Eléctrico→electro-wizard`,
+`Megacaballero→mega-knight`, `Princesa→princess`, `Ariete de Batalla→battle-ram`,
+`Bola de Fuego→fireball`, `Choque de Duendes→goblin-gang (?)`, `Gigante→giant`, `Lápida→tombstone`,
+`Mago→wizard`, `Mini P.E.K.K.A→mini-pekka`, `Mosquetera→musketeer`, `Torre Inferno→inferno-tower`,
+`Valquiria→valkyrie`.
 
 ## No-objetivos (YAGNI)
 
 - No se elimina `active_deck` / `set_deck_slot` ni se migran datos históricos.
 - No se rediseña la UI del mazo más allá de soportar 8 slots.
-- No se agregan cartas nuevas ni se cambia el balance de multiplicadores/gacha.
+- No se agregan cartas nuevas ni se toca el gacha. (Sí se **puebla** `multiplier_percent` con los
+  valores derivados de `multiplier` — es lo que hace que el mazo pague; no es un rebalanceo nuevo.)
 - No se cambia el `GameCard` ni el sistema de niveles/mejoras.
 
 ## Riesgos
