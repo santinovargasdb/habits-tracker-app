@@ -4,14 +4,18 @@ import { useState } from "react";
 import { Dices } from "lucide-react";
 import RouletteView from "@/components/roulette-view";
 import BlackjackView from "@/components/blackjack-view";
+import MinesView from "@/components/mines-view";
+import ChickenView from "@/components/chicken-view";
 import { cn } from "@/lib/utils";
 import { useOnline } from "@/lib/offline/use-online";
 
-type CasinoTab = "ruleta" | "blackjack";
+type CasinoTab = "ruleta" | "blackjack" | "minas" | "pollito";
 
 const TABS: [CasinoTab, string][] = [
   ["ruleta", "Ruleta"],
   ["blackjack", "Blackjack"],
+  ["minas", "Minas"],
+  ["pollito", "Pollito"],
 ];
 
 export default function CasinoView() {
@@ -39,7 +43,7 @@ export default function CasinoView() {
       </div>
 
       {/* Selector de pestañas */}
-      <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl border border-line bg-ink-2 p-1" role="tablist">
+      <div className="mb-3 grid grid-cols-4 gap-1 rounded-xl border border-line bg-ink-2 p-1" role="tablist">
         {TABS.map(([key, label]) => (
           <button
             key={key}
@@ -65,6 +69,12 @@ export default function CasinoView() {
       </div>
       <div hidden={tab !== "blackjack"}>
         <BlackjackView />
+      </div>
+      <div hidden={tab !== "minas"}>
+        <MinesView />
+      </div>
+      <div hidden={tab !== "pollito"}>
+        <ChickenView />
       </div>
     </section>
   );
