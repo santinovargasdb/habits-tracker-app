@@ -129,6 +129,8 @@ $$;
 create or replace function public.enforce_max_equipped()
 returns trigger
 language plpgsql
+security definer
+set search_path = public
 as $$
 begin
   if coalesce(new.is_equipped, false) and (
