@@ -4,8 +4,10 @@ import { getSupabaseOrThrow } from "@/lib/supabase/server";
 import type {
   BlackjackRpcRow,
   BlackjackView,
+  ChickenView,
   FundType,
   Investment,
+  MinesView,
   RouletteColor,
 } from "@/lib/types";
 
@@ -185,4 +187,103 @@ export async function bjHit(): Promise<BlackjackActionResult> {
 
 export async function bjStand(): Promise<BlackjackActionResult> {
   return callBlackjack("bj_stand", {}, "bjStand");
+}
+
+// -----------------------------------------------------------------------------
+// Casino: Minas y Pollito — estado en servidor; el cliente sólo ve la saneada.
+// -----------------------------------------------------------------------------
+export interface MinesActionResult {
+  ok: boolean;
+  view: MinesView | null;
+  insufficient?: boolean;
+  error?: string;
+}
+
+function rowToMines(r: Record<string, unknown>): MinesView {
+  return {
+    status: r.status as MinesView["status"],
+    result: (r.result ?? null) as MinesView["result"],
+    bet: Number(r.bet),
+    minesCount: Number(r.mines_count),
+    picks: (r.picks ?? []) as number[],
+    multiplier: Number(r.multiplier),
+    nextMultiplier: r.next_multiplier == null ? null : Number(r.next_multiplier),
+    payout: r.payout == null ? null : Number(r.payout),
+    revealedMines: (r.revealed_mines ?? null) as number[] | null,
+    newBalance: Number(r.new_balance),
+  };
+}
+
+async function callMines(
+  rpc: "mines_start" | "mines_pick" | "mines_cashout",
+  args: Record<string, unknown>,
+  tag: string,
+): Promise<MinesActionResult> {
+  const supabase = await getSupabaseOrThrow();
+  const { data, error } = await supabase.rpc(rpc, args);
+  if (error) {
+    const insufficient = /insuficiente/i.test(error.message);
+    console.error(`[${tag}] RPC error:`, error.message);
+    return { ok: false, view: null, insufficient, error: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return { ok: false, view: null, error: "Respuesta vacía del servidor" };
+  return { ok: true, view: rowToMines(row as Record<string, unknown>) };
+}
+
+export async function minesStart(bet: number, mines: number): Promise<MinesActionResult> {
+  return callMines("mines_start", { p_bet: bet, p_mines: mines }, "minesStart");
+}
+export async function minesPick(cell: number): Promise<MinesActionResult> {
+  return callMines("mines_pick", { p_cell: cell }, "minesPick");
+}
+export async function minesCashout(): Promise<MinesActionResult> {
+  return callMines("mines_cashout", {}, "minesCashout");
+}
+
+export interface ChickenActionResult {
+  ok: boolean;
+  view: ChickenView | null;
+  insufficient?: boolean;
+  error?: string;
+}
+
+function rowToChicken(r: Record<string, unknown>): ChickenView {
+  return {
+    status: r.status as ChickenView["status"],
+    result: (r.result ?? null) as ChickenView["result"],
+    bet: Number(r.bet),
+    lane: Number(r.lane),
+    multiplier: Number(r.multiplier),
+    nextMultiplier: r.next_multiplier == null ? null : Number(r.next_multiplier),
+    payout: r.payout == null ? null : Number(r.payout),
+    newBalance: Number(r.new_balance),
+  };
+}
+
+async function callChicken(
+  rpc: "chicken_start" | "chicken_step" | "chicken_cashout",
+  args: Record<string, unknown>,
+  tag: string,
+): Promise<ChickenActionResult> {
+  const supabase = await getSupabaseOrThrow();
+  const { data, error } = await supabase.rpc(rpc, args);
+  if (error) {
+    const insufficient = /insuficiente/i.test(error.message);
+    console.error(`[${tag}] RPC error:`, error.message);
+    return { ok: false, view: null, insufficient, error: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return { ok: false, view: null, error: "Respuesta vacía del servidor" };
+  return { ok: true, view: rowToChicken(row as Record<string, unknown>) };
+}
+
+export async function chickenStart(bet: number): Promise<ChickenActionResult> {
+  return callChicken("chicken_start", { p_bet: bet }, "chickenStart");
+}
+export async function chickenStep(): Promise<ChickenActionResult> {
+  return callChicken("chicken_step", {}, "chickenStep");
+}
+export async function chickenCashout(): Promise<ChickenActionResult> {
+  return callChicken("chicken_cashout", {}, "chickenCashout");
 }

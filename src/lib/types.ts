@@ -223,3 +223,30 @@ export interface Database {
     };
   };
 }
+
+// -----------------------------------------------------------------------------
+// Casino: Minas y Pollito (vistas saneadas que devuelven los RPCs)
+// -----------------------------------------------------------------------------
+export interface MinesView {
+  status: "PLAYING" | "DONE";
+  result: "CASHED" | "BUSTED" | null;
+  bet: number;
+  minesCount: number;
+  picks: number[];
+  multiplier: number;
+  nextMultiplier: number | null;
+  payout: number | null;
+  revealedMines: number[] | null;
+  newBalance: number;
+}
+
+export interface ChickenView {
+  status: "PLAYING" | "DONE";
+  result: "CASHED" | "DEAD" | null;
+  bet: number;
+  lane: number;
+  multiplier: number;
+  nextMultiplier: number | null;
+  payout: number | null;
+  newBalance: number;
+}
