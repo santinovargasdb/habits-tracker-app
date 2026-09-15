@@ -1,6 +1,7 @@
 import AppShell from "@/components/app-shell";
 import { getSupabase } from "@/lib/supabase/server";
 import { EMPTY_DECK, normalizeTimeBlock } from "@/lib/constants";
+import { rowToCard } from "@/lib/cards";
 import { todayISO, weekStartISO } from "@/lib/utils";
 import type {
   Card,
@@ -78,20 +79,7 @@ export default async function Page() {
       Record<string, unknown>
     > | null;
     if (dbCards && dbCards.length > 0) {
-      cards = dbCards.map((c) => ({
-        id: String(c.id),
-        name: String(c.name ?? "Carta"),
-        rarity: c.rarity,
-        target_block: c.target_block ?? null,
-        multiplier_percent:
-          typeof c.multiplier === "number"
-            ? c.multiplier
-            : typeof c.multiplier_percent === "number"
-              ? c.multiplier_percent
-              : 0,
-        description: String(c.description ?? ""),
-        image_url: (c.icon_url ?? c.image_url ?? null) as string | null,
-      })) as Card[];
+      cards = dbCards.map(rowToCard);
     }
 
     // Inventario (join en JS) — incluye id de fila e is_equipped (mazo activo).

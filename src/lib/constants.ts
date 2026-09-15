@@ -135,7 +135,7 @@ export const DECK_SIZE = 8;
 export const EMPTY_DECK: Deck = Array(DECK_SIZE).fill(null);
 
 /** Tope duro de cartas equipadas (mazo activo por is_equipped). */
-export const MAX_EQUIPPED = 4;
+export const MAX_EQUIPPED = 8;
 
 export interface RarityMeta {
   label: string;

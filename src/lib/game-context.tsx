@@ -13,8 +13,8 @@ import {
   DECK_SIZE,
   EMPTY_DECK,
   MAX_EQUIPPED,
-  effectiveMultiplier,
 } from "@/lib/constants";
+import { equippedMultiplierForBlock } from "@/lib/deck";
 import type { Card, Deck, OwnedCard, TimeBlock } from "@/lib/types";
 
 interface GameContextValue {
@@ -93,22 +93,8 @@ export function GameProvider({
   );
 
   const multiplierForBlock = useCallback(
-    (block: TimeBlock) => {
-      let total = 0;
-      for (const id of deck) {
-        if (!id) continue;
-        const card = cardMap.get(id);
-        if (!card) continue;
-        if (card.target_block === null || card.target_block === block) {
-          total += effectiveMultiplier(
-            card.multiplier_percent,
-            levelMap.get(id) ?? 1,
-          );
-        }
-      }
-      return total;
-    },
-    [deck, cardMap, levelMap],
+    (block: TimeBlock) => equippedMultiplierForBlock(inventory, block),
+    [inventory],
   );
 
   const slotOf = useCallback(
