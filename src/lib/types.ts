@@ -104,7 +104,7 @@ export interface OwnedCard {
   card: Card;
   quantity: number;
   level: number;
-  /** true si está en el mazo activo (máx 4). */
+  /** true si está en el mazo activo (máx 8). */
   is_equipped: boolean;
 }
 

@@ -22,4 +22,14 @@ describe("rowToCard", () => {
     expect(c.target_block).toBeNull();
     expect(c.multiplier_percent).toBe(0);
   });
+
+  it("normaliza target_block en inglés a la etiqueta canónica en español", () => {
+    const c = rowToCard({ id: "x", name: "Mago", rarity: "Rare", target_block: "AFTERNOON" });
+    expect(c.target_block).toBe("Tarde");
+  });
+
+  it("deja target_block canónico intacto", () => {
+    const c = rowToCard({ id: "x", name: "Mago", rarity: "Rare", target_block: "Tarde" });
+    expect(c.target_block).toBe("Tarde");
+  });
 });

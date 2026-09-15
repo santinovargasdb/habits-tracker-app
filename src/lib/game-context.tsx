@@ -22,7 +22,7 @@ interface GameContextValue {
   inventory: OwnedCard[];
   deck: Deck;
   cardById: (id: string | null) => Card | undefined;
-  /** Suma de multiplier_percent de cartas equipadas que afectan al bloque. */
+  /** Suma del multiplicador efectivo (con nivel) de las cartas equipadas que aplican al bloque. */
   multiplierForBlock: (block: TimeBlock) => number;
   /** Índice de slot (0..7) donde está equipada la carta, o -1. */
   slotOf: (cardId: string) => number;
