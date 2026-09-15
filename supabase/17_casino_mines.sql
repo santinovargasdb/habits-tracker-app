@@ -164,4 +164,7 @@ grant execute on function public.mines_start(integer, integer) to authenticated;
 grant execute on function public.mines_pick(integer)           to authenticated;
 grant execute on function public.mines_cashout()               to authenticated;
 revoke execute on function public.mines_render(public.mines_games, integer) from anon;
+revoke execute on function public.mines_start(integer, integer) from anon;
+revoke execute on function public.mines_pick(integer)           from anon;
+revoke execute on function public.mines_cashout()               from anon;
 -- FIN Paso 17.

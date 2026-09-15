@@ -124,4 +124,7 @@ grant execute on function public.chicken_start(integer) to authenticated;
 grant execute on function public.chicken_step()         to authenticated;
 grant execute on function public.chicken_cashout()      to authenticated;
 revoke execute on function public.chicken_render(public.chicken_games, integer) from anon;
+revoke execute on function public.chicken_start(integer) from anon;
+revoke execute on function public.chicken_step()         from anon;
+revoke execute on function public.chicken_cashout()      from anon;
 -- FIN Paso 18.
