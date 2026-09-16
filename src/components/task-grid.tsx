@@ -37,13 +37,13 @@ export function TaskGrid({ block, tareas }: { block: TimeBlock; tareas: BlockTas
                   aria-hidden
                   className="grid h-4 w-4 place-items-center rounded-[3px] text-[10px]"
                   style={{
-                    backgroundColor:
-                      cell === true ? `${meta.accent}33` : cell === false ? "#20262e" : "transparent",
-                    color: meta.accent,
+                    // Completado: círculo del color del bloque (resalta).
+                    // Sin completar: cruz gris tenue (se corre al fondo, no entorpece).
+                    color: cell === true ? meta.accent : "#4b5563",
                     border: cell === null ? "1px dashed #2a3038" : "none",
                   }}
                 >
-                  {cell === true ? "✕" : cell === false ? "·" : ""}
+                  {cell === true ? "●" : cell === false ? "✕" : ""}
                 </span>
               ))}
             </div>
