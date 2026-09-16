@@ -256,6 +256,8 @@ export interface ChestTierConfig {
   name: string;
   cost: number;
   icon: string;
+  /** Arte local del cofre (/chests/<tier>.png). El `icon` (emoji) es el fallback. */
+  image?: string;
   accent: string;
   blurb: string;
   weights: Record<CardRarity, number>;
@@ -267,6 +269,7 @@ export const CHEST_TIERS: ChestTierConfig[] = [
     name: "Cofre de Plata",
     cost: 50,
     icon: "📦",
+    image: "/chests/silver.png",
     accent: "#c9d1d9",
     blurb: "Barato y frecuente. Ideal para empezar la colección.",
     weights: { Common: 0.75, Rare: 0.2, Epic: 0.05, Legendary: 0.0 },
@@ -276,6 +279,7 @@ export const CHEST_TIERS: ChestTierConfig[] = [
     name: "Cofre de Oro",
     cost: 150,
     icon: "🎁",
+    image: "/chests/gold.png",
     accent: "#f6c445",
     blurb: "Mayor chance de raras y épicas.",
     weights: { Common: 0.3, Rare: 0.5, Epic: 0.18, Legendary: 0.02 },
@@ -285,6 +289,7 @@ export const CHEST_TIERS: ChestTierConfig[] = [
     name: "Cofre Mágico",
     cost: 400,
     icon: "🔮",
+    image: "/chests/magical.png",
     accent: "#b061ff",
     blurb: "Sólo cartas potentes. Chance real de Legendaria.",
     weights: { Common: 0.0, Rare: 0.2, Epic: 0.5, Legendary: 0.3 },

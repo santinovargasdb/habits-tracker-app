@@ -8,6 +8,7 @@ import {
   ChestRevealModal,
   type RevealPhase,
 } from "@/components/chest-reveal-modal";
+import { ChestArt } from "@/components/chest-art";
 import { openChest } from "@/actions/gacha";
 import { useWallet } from "@/lib/wallet-context";
 import { useGame } from "@/lib/game-context";
@@ -150,7 +151,10 @@ export default function StoreView() {
                     background: `radial-gradient(circle at 50% 40%, ${chest.accent}33, transparent 70%)`,
                   }}
                 >
-                  {chest.icon}
+                  <ChestArt
+                    chest={chest}
+                    className="h-14 w-14 object-contain text-4xl drop-shadow-[0_2px_6px_rgba(0,0,0,0.5)]"
+                  />
                 </div>
 
                 <div className="min-w-0 flex-1">

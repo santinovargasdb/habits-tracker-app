@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { GameCard } from "@/components/game-card";
+import { ChestArt } from "@/components/chest-art";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RARITY_META } from "@/lib/constants";
@@ -13,6 +14,8 @@ export type RevealPhase = "opening" | "revealed" | null;
 interface ChestVisual {
   icon: string;
   accent: string;
+  image?: string;
+  name: string;
 }
 
 interface ChestRevealModalProps {
@@ -66,9 +69,10 @@ export function ChestRevealModal({
               className="animate-glow-breathe absolute h-52 w-52 rounded-full blur-2xl"
               style={{ backgroundColor: `${chest.accent}55` }}
             />
-            <span className="animate-chest-shake relative text-[92px] leading-none drop-shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
-              {chest.icon}
-            </span>
+            <ChestArt
+              chest={chest}
+              className="animate-chest-shake relative h-32 w-32 object-contain text-[92px] leading-none drop-shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
+            />
             <p className="relative mt-6 font-display text-lg font-bold tracking-wide text-fg">
               Abriendo…
             </p>
