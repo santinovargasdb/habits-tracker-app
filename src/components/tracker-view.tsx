@@ -181,9 +181,7 @@ export default function TrackerView({ seed }: TrackerViewProps) {
           className="animate-rise mb-7 rounded-2xl border border-gold/40 bg-gradient-to-b from-gold/[0.10] to-gold/[0.02] p-4 shadow-[0_0_28px_-10px_rgba(246,196,69,0.6)]"
         >
           <div className="mb-3 flex items-center gap-2.5">
-            <span className="text-lg" aria-hidden>
-              {WEEKLY_BLOCK_META.icon}
-            </span>
+            <WEEKLY_BLOCK_META.icon className="h-5 w-5 shrink-0 text-gold" aria-hidden />
             <h2 className="font-display text-xs font-bold uppercase tracking-[0.2em] text-gold">
               {WEEKLY_BLOCK_META.label}
             </h2>
@@ -228,9 +226,7 @@ export default function TrackerView({ seed }: TrackerViewProps) {
           return (
             <section key={block}>
               <div className="mb-3 flex items-center gap-2.5">
-                <span className="text-lg" aria-hidden>
-                  {meta.icon}
-                </span>
+                <meta.icon className="h-5 w-5 shrink-0" style={{ color: meta.accent }} aria-hidden />
                 <h2
                   className="font-display text-xs font-bold uppercase tracking-[0.2em]"
                   style={{ color: meta.accent }}

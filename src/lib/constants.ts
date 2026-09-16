@@ -1,3 +1,22 @@
+import {
+  Sunrise,
+  TrainFront,
+  Dumbbell,
+  Moon,
+  Target,
+  Landmark,
+  Rocket,
+  BookOpen,
+  Divide,
+  Swords,
+  Shield,
+  Layers,
+  Gem,
+  Circle,
+  Crown,
+  type LucideIcon,
+} from "lucide-react";
+
 import type {
   Card,
   CardRarity,
@@ -54,7 +73,7 @@ export function normalizeTimeBlock(raw: unknown): TimeBlock {
 export interface TimeBlockMeta {
   label: string;
   tagline: string;
-  icon: string;
+  icon: LucideIcon;
   /** Color de acento del bloque (CSS). */
   accent: string;
   window: string;
@@ -64,28 +83,28 @@ export const TIME_BLOCK_META: Record<TimeBlock, TimeBlockMeta> = {
   Madrugada: {
     label: "Madrugada",
     tagline: "Antes del amanecer",
-    icon: "🌅",
+    icon: Sunrise,
     accent: "#f4a15d",
     window: "05:00 – 08:00",
   },
   Viaje: {
     label: "Viaje",
     tagline: "En movimiento",
-    icon: "🚄",
+    icon: TrainFront,
     accent: "#5eb0ef",
     window: "en tránsito",
   },
   Tarde: {
     label: "Tarde",
     tagline: "Cuerpo y mente",
-    icon: "🥋",
+    icon: Dumbbell,
     accent: "#ff7a4d",
     window: "15:00 – 19:00",
   },
   Noche: {
     label: "Noche",
     tagline: "Estudio y cierre",
-    icon: "🌙",
+    icon: Moon,
     accent: "#9b8bf5",
     window: "19:00 – 22:00",
   },
@@ -99,7 +118,7 @@ export const TIME_BLOCK_META: Record<TimeBlock, TimeBlockMeta> = {
 export interface WeeklyBlockMeta {
   label: string;
   tagline: string;
-  icon: string;
+  icon: LucideIcon;
   /** Acento dorado del bloque (CSS). */
   accent: string;
 }
@@ -107,7 +126,7 @@ export interface WeeklyBlockMeta {
 export const WEEKLY_BLOCK_META: WeeklyBlockMeta = {
   label: "Bloque Semanal",
   tagline: "Metas de largo aliento",
-  icon: "⭐",
+  icon: Target,
   accent: "#f6c445",
 };
 
@@ -186,23 +205,23 @@ export const RARITY_FRAME_CLASS: Record<CardRarity, string> = {
     "border-yellow-400 bg-yellow-950/90 shadow-lg shadow-yellow-500/20",
 };
 
-/** Arte (emoji) por carta — keyed por los UUIDs fijos del seed. */
-export const CARD_ART: Record<string, string> = {
-  "aaaa1111-1111-1111-1111-111111111111": "📖",
-  "bbbb2222-2222-2222-2222-222222222222": "➗",
-  "cccc3333-3333-3333-3333-333333333333": "🥋",
-  "dddd4444-4444-4444-4444-444444444444": "🛡️",
+/** Arte (ícono lucide) por carta — keyed por los UUIDs fijos del seed. */
+export const CARD_ART: Record<string, LucideIcon> = {
+  "aaaa1111-1111-1111-1111-111111111111": BookOpen,
+  "bbbb2222-2222-2222-2222-222222222222": Divide,
+  "cccc3333-3333-3333-3333-333333333333": Swords,
+  "dddd4444-4444-4444-4444-444444444444": Shield,
 };
 
 /** Fallback de arte por rareza si el id no está mapeado. */
-export const RARITY_ART: Record<CardRarity, string> = {
-  Common: "🎴",
-  Rare: "🔷",
-  Epic: "🟣",
-  Legendary: "👑",
+export const RARITY_ART: Record<CardRarity, LucideIcon> = {
+  Common: Layers,
+  Rare: Gem,
+  Epic: Circle,
+  Legendary: Crown,
 };
 
-export function cardArt(card: Pick<Card, "id" | "rarity">): string {
+export function cardArt(card: Pick<Card, "id" | "rarity">): LucideIcon {
   return CARD_ART[card.id] ?? RARITY_ART[card.rarity];
 }
 
@@ -349,7 +368,7 @@ export const CHESTS: ChestConfig[] = [
 export interface FundMeta {
   name: string;
   short: string;
-  icon: string;
+  icon: LucideIcon;
   accent: string;
   rate: string;
   blurb: string;
@@ -359,7 +378,7 @@ export const FUND_META: Record<FundType, FundMeta> = {
   CONSERVATIVE: {
     name: "Bono Entropía",
     short: "Conservador",
-    icon: "🏦",
+    icon: Landmark,
     accent: "#3ecf8e",
     rate: "+1% diario fijo",
     blurb: "Crecimiento estable y garantizado.",
@@ -367,7 +386,7 @@ export const FUND_META: Record<FundType, FundMeta> = {
   AGGRESSIVE: {
     name: "Fondo de Alto Riesgo",
     short: "Agresivo",
-    icon: "🚀",
+    icon: Rocket,
     accent: "#ff7a3d",
     rate: "70% +5% · 30% −3% por día",
     blurb: "Alta volatilidad, alto potencial.",

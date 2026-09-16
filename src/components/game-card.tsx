@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { createElement, useState } from "react";
+import { Globe } from "lucide-react";
 import {
   RARITY_FRAME_CLASS,
   RARITY_META,
@@ -25,7 +26,7 @@ export function GameCard({ card, size = "sm", level, className }: GameCardProps)
 
   const rarity = RARITY_META[card.rarity];
   const block = card.target_block ? TIME_BLOCK_META[card.target_block] : null;
-  const art = cardArt(card);
+  const art = cardArt(card); // componente de ícono (lucide) para el fallback sin imagen
   const isLegendary = card.rarity === "Legendary";
   const sm = size === "sm";
   const lvl = level ?? 1;
@@ -86,12 +87,11 @@ export function GameCard({ card, size = "sm", level, className }: GameCardProps)
             className="h-full w-full object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.5)]"
           />
         ) : (
-          <span
-            aria-hidden
-            className={cn("leading-none", sm ? "text-[30px]" : "text-6xl")}
-          >
-            {art}
-          </span>
+          createElement(art, {
+            "aria-hidden": true,
+            className: cn(sm ? "h-8 w-8" : "h-16 w-16"),
+            style: { color: rarity.color },
+          })
         )}
       </div>
 
@@ -114,11 +114,14 @@ export function GameCard({ card, size = "sm", level, className }: GameCardProps)
       >
         {block ? (
           <>
-            <span aria-hidden>{block.icon}</span>
+            <block.icon aria-hidden className={cn("shrink-0", sm ? "h-3 w-3" : "h-4 w-4")} />
             <span className="truncate">{block.label}</span>
           </>
         ) : (
-          <span className="text-slate-300">🌐 Global</span>
+          <span className="flex items-center gap-1 text-slate-300">
+            <Globe aria-hidden className={cn("shrink-0", sm ? "h-3 w-3" : "h-4 w-4")} />
+            Global
+          </span>
         )}
       </span>
 

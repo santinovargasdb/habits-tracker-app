@@ -10,7 +10,7 @@ export function TaskGrid({ block, tareas }: { block: TimeBlock; tareas: BlockTas
   return (
     <section className="mb-4">
       <div className="mb-1.5 flex items-center gap-2">
-        <span aria-hidden>{meta.icon}</span>
+        <meta.icon aria-hidden className="h-4 w-4 shrink-0" style={{ color: meta.accent }} />
         <h3 className="font-display text-sm font-bold uppercase tracking-wide" style={{ color: meta.accent }}>
           {meta.label}
         </h3>

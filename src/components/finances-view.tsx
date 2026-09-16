@@ -158,13 +158,13 @@ export default function FinancesView({
                 />
                 <div className="relative flex items-start gap-3">
                   <div
-                    className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border text-2xl"
+                    className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border"
                     style={{
                       borderColor: `${cfg.accent}55`,
                       background: `radial-gradient(circle at 50% 40%, ${cfg.accent}2e, transparent 70%)`,
                     }}
                   >
-                    {cfg.icon}
+                    <cfg.icon className="h-6 w-6" style={{ color: cfg.accent }} aria-hidden />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
