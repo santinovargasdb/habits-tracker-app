@@ -79,8 +79,15 @@ begin
   update public.wallet set balance = balance - p_bet, updated_at = now()
     where user_id = v_uid returning balance into v_balance;
 
+  -- OJO: generate_series va en el FROM (row-source real). Si va en el SELECT,
+  -- el `order by random()` NO ordena el set y el LIMIT devuelve siempre las
+  -- primeras N posiciones (0,1,2… = arriba-izquierda). Ver migración 21.
   select array_agg(pos) into v_positions
-  from (select generate_series(0, 24) as pos order by random() limit p_mines) s;
+  from (
+    select g.pos from generate_series(0, 24) as g(pos)
+    order by random()
+    limit p_mines
+  ) s;
 
   insert into public.mines_games (user_id, bet, mines_count, mine_positions, picks, status, result, multiplier, payout, updated_at)
   values (v_uid, p_bet, p_mines, v_positions, '{}', 'PLAYING', null, 1, null, now())
