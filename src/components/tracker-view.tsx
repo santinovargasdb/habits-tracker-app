@@ -13,6 +13,7 @@ import { cn, formatLongDate } from "@/lib/utils";
 import { useTrackerData } from "@/lib/offline/use-tracker-data";
 import type { TrackerSnapshot } from "@/lib/offline/store";
 import { optimisticReward } from "@/lib/offline/reward";
+import ActivityBar from "@/components/activity-bar";
 
 interface TrackerViewProps {
   seed: TrackerSnapshot | null;
@@ -108,6 +109,8 @@ export default function TrackerView({ seed }: TrackerViewProps) {
 
   return (
     <div className="relative z-10 mx-auto w-full max-w-md px-4 pb-28 pt-6">
+      {/* Racha + heatmap de actividad */}
+      {habits.length > 0 && <ActivityBar habits={habits} today={date} />}
       {/* Hero */}
       <section className="animate-rise mb-7">
         <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
