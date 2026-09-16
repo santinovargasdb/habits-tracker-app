@@ -68,6 +68,14 @@ export function mejorRachaEnVentana(
   return best;
 }
 
+/** Semanas (columnas) que muestra el heatmap estilo GitHub. */
+export const SEMANAS_HEATMAP = 26;
+
+/** Lunes de arranque de la grilla: SEMANAS_HEATMAP semanas atrás (incluida la actual). */
+export function heatmapDesdeISO(hoyISO: string): string {
+  return addDaysISO(weekStartISO(hoyISO), -(SEMANAS_HEATMAP - 1) * 7);
+}
+
 export interface ActivityRow {
   habit_id: string;
   log_date: string;
@@ -79,7 +87,13 @@ export interface BlockTask {
   semana: (boolean | null)[];
 }
 export interface ActivitySummary {
-  general: { niveles30: number[]; rachaActual: number; mejorRacha: number; diasActivos: number };
+  general: {
+    /** Grilla estilo GitHub: semanas[col] = una semana (7 celdas lun→dom). Nivel 0-4, o null si el día es futuro. */
+    semanas: (number | null)[][];
+    rachaActual: number;
+    mejorRacha: number;
+    diasActivos: number;
+  };
   etapas: Record<TimeBlock, { tareas: BlockTask[] }>;
   tareaEstrella: { nombre: string; hechos: number } | null;
 }
@@ -89,7 +103,7 @@ export function summarizeActivity(
   habits: Habit[],
   hoyISO: string,
 ): ActivitySummary {
-  const desde30 = addDaysISO(hoyISO, -29);
+  const desde = heatmapDesdeISO(hoyISO); // lunes de arranque de la grilla (26 semanas atrás)
 
   // Set de fechas activas y conteo por fecha (nº de tareas hechas ese día).
   const activos = new Set<string>();
@@ -101,12 +115,24 @@ export function summarizeActivity(
     done.add(`${r.habit_id}|${r.log_date}`);
   }
 
-  const niveles30 = rangeISO(desde30, hoyISO).map((d) => bucketNivel(countPorFecha.get(d) ?? 0));
+  // Heatmap estilo GitHub: SEMANAS_HEATMAP columnas (semanas) × 7 filas (lun→dom).
+  // Cada celda = nivel 0-4; null si el día es futuro (posterior a hoy).
+  const semanas: (number | null)[][] = [];
+  for (let w = 0; w < SEMANAS_HEATMAP; w++) {
+    const lunSemana = addDaysISO(desde, w * 7);
+    const semana: (number | null)[] = [];
+    for (let d = 0; d < 7; d++) {
+      const dia = addDaysISO(lunSemana, d);
+      semana.push(dia > hoyISO ? null : bucketNivel(countPorFecha.get(dia) ?? 0));
+    }
+    semanas.push(semana);
+  }
+
   const general = {
-    niveles30,
+    semanas,
     rachaActual: computeStreak(activos, hoyISO),
-    mejorRacha: mejorRachaEnVentana(activos, desde30, hoyISO),
-    diasActivos: activos.size,
+    mejorRacha: mejorRachaEnVentana(activos, desde, hoyISO),
+    diasActivos: [...activos].filter((d) => d >= desde && d <= hoyISO).length,
   };
 
   // Semana en curso: lunes → domingo (7 días).

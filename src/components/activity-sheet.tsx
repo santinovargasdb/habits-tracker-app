@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { TIME_BLOCK_ORDER } from "@/lib/constants";
 import type { ActivitySummary } from "@/lib/activity";
-import { DayStrip } from "@/components/day-strip";
+import { HeatGrid } from "@/components/heat-grid";
 import { TaskGrid } from "@/components/task-grid";
 
 export function ActivitySheet({
@@ -45,9 +45,11 @@ export function ActivitySheet({
 
         {/* General */}
         <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
-          General · últimos 30 días
+          General · últimos 6 meses
         </p>
-        <DayStrip niveles={g.niveles30} className="mb-4" />
+        <div className="mb-4 overflow-x-auto">
+          <HeatGrid semanas={g.semanas} />
+        </div>
 
         {/* Etapas */}
         {TIME_BLOCK_ORDER.map((block) => (
@@ -56,8 +58,8 @@ export function ActivitySheet({
 
         {/* Info de racha */}
         <div className="mt-3 space-y-1 border-t border-line pt-3 text-sm text-fg">
-          <p>🔥 Racha actual: <b>{g.rachaActual}</b> días · mejor (30d): <b>{g.mejorRacha}</b></p>
-          <p className="text-muted">📊 {g.diasActivos} días activos (últimos 30)</p>
+          <p>🔥 Racha actual: <b>{g.rachaActual}</b> días · mejor: <b>{g.mejorRacha}</b></p>
+          <p className="text-muted">📊 {g.diasActivos} días activos (6 meses)</p>
           {summary.tareaEstrella && (
             <p className="text-gold">
               ⭐ Tarea estrella de la semana: «{summary.tareaEstrella.nombre}» ({summary.tareaEstrella.hechos} días)

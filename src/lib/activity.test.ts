@@ -75,9 +75,17 @@ describe("summarizeActivity", () => {
     expect(s.general.rachaActual).toBe(3);
     expect(s.general.mejorRacha).toBe(3);
     expect(s.general.diasActivos).toBe(3);
-    expect(s.general.niveles30).toHaveLength(30);
-    // último día (hoy) tuvo 2 tareas → nivel 2
-    expect(s.general.niveles30[29]).toBe(2);
+    // grilla estilo GitHub: 26 columnas (semanas) × 7 filas (lun→dom)
+    expect(s.general.semanas).toHaveLength(26);
+    expect(s.general.semanas.every((w) => w.length === 7)).toBe(true);
+    // semana actual = última columna (lun14..dom20): vie18=2, sab19=1, dom20=2, resto 0
+    expect(s.general.semanas[25]).toEqual([0, 0, 0, 0, 2, 1, 2]);
+  });
+
+  it("grilla general: días futuros de la semana en curso son null", () => {
+    // hoy = miércoles 2026-09-16; semana lun14..dom20; jue17..dom20 son futuros.
+    const s = summarizeActivity([], habits, "2026-09-16");
+    expect(s.general.semanas[25]).toEqual([0, 0, 0, null, null, null, null]);
   });
 
   it("grids por etapa: 7 celdas lun→dom, futuros null", () => {
