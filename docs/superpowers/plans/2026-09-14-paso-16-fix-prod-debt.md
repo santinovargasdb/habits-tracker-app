@@ -441,7 +441,7 @@ Expected: `habits_owner` (y ya NO `Permitir lectura de habitos`).
 
 - [ ] **Step 1: Recargar el deploy**
 
-Abrir `https://habits-tracker-app-ten.vercel.app/` (navegador) y esperar el auto-login. Los hábitos deben seguir en sus bloques (Madrugada/Viaje/Tarde/Noche) — ahora incluso sin depender de `normalizeTimeBlock`.
+Abrir la app en producción (navegador) y esperar el auto-login. Los hábitos deben seguir en sus bloques (Madrugada/Viaje/Tarde/Noche) — ahora incluso sin depender de `normalizeTimeBlock`.
 
 - [ ] **Step 2: Marcar un hábito diario**
 

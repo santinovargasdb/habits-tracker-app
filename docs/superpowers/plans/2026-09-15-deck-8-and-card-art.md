@@ -840,7 +840,7 @@ Mensaje al usuario: correr en Supabase, en orden, `supabase/19_deck_equipped_mul
 
 - [ ] **Step 2: Verificar las imágenes reales (Playwright)**
 
-En `https://habits-tracker-app-ten.vercel.app/`, ir al Mazo/Colección y comprobar, vía el DOM, que los `<img>` de las cartas cargan (`naturalWidth > 0`) y su `src` empieza con `/cards/`. Expected: 0 imágenes rotas.
+En la app en producción, ir al Mazo/Colección y comprobar, vía el DOM, que los `<img>` de las cartas cargan (`naturalWidth > 0`) y su `src` empieza con `/cards/`. Expected: 0 imágenes rotas.
 
 - [ ] **Step 3: Verificar el % y el pago del mazo**
 
