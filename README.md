@@ -1,13 +1,17 @@
-# 道 Dojo Ledger — Tracking de Hábitos + Economía Gamificada
+# 道 Dojo Ledger
 
-MVP · **Paso 1: Motor de Tracking y Economía Base**
+> Tracker de hábitos con una **economía gamificada completa** estilo Clash Royale: cumplís hábitos, ganás monedas y las gastás en cartas, cofres (gacha), fondos de inversión y un casino con RNG del lado del servidor. Offline-first, instalable como PWA.
 
-PWA mobile-first para trackear hábitos con una economía de monedas integrada.
-Registrás cada hábito con un control de 3 estados a un solo toque y ganás (o perdés)
-monedas al instante.
+![Next.js](https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-5A0FC8?logo=pwa&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-48_passing-2ea44f?logo=vitest&logoColor=white)
 
-- **Stack:** Next.js 16 (App Router) · React 19 · Tailwind CSS v4 · shadcn/ui · Supabase (PostgreSQL)
-- **UX:** actualizaciones optimistas (la UI no espera a la red) · sticky header con balance en vivo · PWA instalable
+<!-- 📸 CAPTURAS: este proyecto es MUY visual — metele 3-4 (tracker, mazo, casino, heatmap). Arrastralas acá en el editor web de GitHub o guardá en docs/screenshots/: -->
+<!-- ![Tracker y mazo](docs/screenshots/tracker.png) -->
+
+**Destacados:** toda la lógica autoritativa (economía, RNG, saldo) vive en RPCs `security definer` · balance delta-based robusto a cambios de mazo · offline real con outbox + reconciliación · 16 migraciones SQL versionadas · 48 tests pasando.
 
 > **Modo demo:** la app funciona apenas la corrés, sin configurar nada. Muestra los
 > hábitos base y podés tocar los estados (sin persistir). Al configurar Supabase,
